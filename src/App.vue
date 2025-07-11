@@ -1,30 +1,32 @@
 <template>
-  <nav>
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </nav>
-  <router-view />
+  <div id="app">
+    <router-view />
+  </div>
 </template>
 
+<script>
+export default {
+  name: "App", // Nombre del componente principal
+  // No necesitamos ninguna lógica específica aquí por ahora
+};
+</script>
+
 <style>
+/* Estos son estilos globales que afectarán a toda tu aplicación.
+   Puedes ajustarlos o añadir más aquí más adelante. */
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
+  text-align: center; /* Centra el texto de forma global */
+  color: #2c3e50; /* Color de texto por defecto */
+  margin-top: 60px; /* Esto puede mover tu contenido hacia abajo, puedes quitarlo si quieres */
 }
 
-nav {
-  padding: 30px;
-}
-
-nav a {
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-nav a.router-link-exact-active {
-  color: #42b983;
+/* Puedes añadir más estilos globales aquí */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f0f0f0; /* Un color de fondo suave para empezar */
 }
 </style>
