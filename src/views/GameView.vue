@@ -53,6 +53,7 @@ export default {
     const totalRounds = ref(3); // Número total de mini-juegos en un desafío
 
     // --- NUEVO: Dificultad Global del Desafío ---
+    // eslint-disable-next-line no-unused-vars
     const currentDifficulty = ref("normal"); // Por ahora hardcodeado, luego vendrá de HomeView
 
     // --- Gestión de Mini-Juegos ---
