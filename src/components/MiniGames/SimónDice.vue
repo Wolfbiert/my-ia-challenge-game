@@ -38,13 +38,13 @@
 import { ref, onMounted } from "vue";
 
 export default {
-  name: "SimonDice", // Nombre del componente
+  name: "SimonDice",
 
-  emits: ["round-finished"], // Evento a emitir al GameView
+  emits: ["round-finished"],
 
   setup(props, { emit }) {
     // --- Configuración del Juego ---
-    const colors = ["red", "blue", "green", "yellow"]; // Colores de los botones de Simon
+    const colors = ["red", "blue", "green", "yellow"];
     const initialSequenceLength = 2; // Longitud inicial de la secuencia
     const roundsToWinSimon = 3; // Cuántas rondas internas de Simon debe ganar el jugador para ganar el mini-juego
 
@@ -52,41 +52,36 @@ export default {
     const gameStarted = ref(false);
     const gameOver = ref(false);
     const gameMessage = ref('Presiona "¡Empezar!" para jugar.');
-    const messageType = ref("info"); // info, success, error, warning
+    const messageType = ref("info");
 
-    const sequence = ref([]); // Secuencia generada por la IA
-    const playerSequence = ref([]); // Secuencia ingresada por el jugador
-    const isShowingSequence = ref(false); // Bandera para controlar si la IA está mostrando la secuencia
-    const isPlayerTurn = ref(false); // Bandera para controlar el turno del jugador
-    const activeLight = ref(null); // Qué botón está activo/iluminado actualmente
+    const sequence = ref([]);
+    const playerSequence = ref([]);
+    const isShowingSequence = ref(false);
+    const isPlayerTurn = ref(false);
+    const activeLight = ref(null);
 
-    const currentSimonRound = ref(1); // Ronda actual dentro de este mini-juego de Simon Dice
+    const currentSimonRound = ref(1);
 
     // --- Lógica del Juego ---
 
-    // Genera un paso aleatorio y lo añade a la secuencia
     const addRandomStepToSequence = () => {
       const randomColorIndex = Math.floor(Math.random() * colors.length);
       sequence.value.push(colors[randomColorIndex]);
     };
 
-    // Muestra la secuencia de la IA
     const showSequence = async () => {
       isShowingSequence.value = true;
       isPlayerTurn.value = false;
       gameMessage.value = "¡Memoriza la secuencia!";
       messageType.value = "info";
-      playerSequence.value = []; // Reinicia la secuencia del jugador
+      playerSequence.value = [];
 
-      // Pequeño retraso antes de empezar a mostrar
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       for (let i = 0; i < sequence.value.length; i++) {
-        activeLight.value = sequence.value[i]; // Ilumina el botón actual
-        // Espera para que el jugador vea la luz y escuche el posible sonido
-        await new Promise((resolve) => setTimeout(resolve, 600)); // Tiempo de luz
-        activeLight.value = null; // Apaga el botón
-        // Pequeña pausa entre luces
+        activeLight.value = sequence.value[i];
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        activeLight.value = null;
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
@@ -96,50 +91,42 @@ export default {
       messageType.value = "info";
     };
 
-    // Maneja el clic del jugador en un botón de Simón
     const handlePlayerClick = (index) => {
       if (!isPlayerTurn.value || isShowingSequence.value || gameOver.value)
         return;
 
       const clickedColor = colors[index];
-      playerSequence.value.push(clickedColor); // Añade la elección del jugador a su secuencia
-      // Efecto visual instantáneo al presionar (no la luz de la IA)
-      // Podríamos añadir una clase temporal aquí para un feedback visual al clic del jugador
+      playerSequence.value.push(clickedColor);
 
-      // Comprueba si el paso actual es correcto
       if (
         playerSequence.value[playerSequence.value.length - 1] !==
         sequence.value[playerSequence.value.length - 1]
       ) {
-        // ¡Error!
         gameMessage.value = "¡Secuencia incorrecta! Perdiste el mini-juego.";
         messageType.value = "error";
         gameOver.value = true;
         isPlayerTurn.value = false;
-        emit("round-finished", { winner: "ia" }); // La IA ganó este mini-juego
+        emit("round-finished", { winner: "ia" });
         return;
       }
 
-      // Si la secuencia del jugador coincide con la de la IA y es el último paso
       if (playerSequence.value.length === sequence.value.length) {
         gameMessage.value = "¡Correcto! Preparando la siguiente ronda...";
         messageType.value = "success";
         isPlayerTurn.value = false;
 
-        // Retraso antes de la siguiente ronda o ganar el mini-juego
         setTimeout(() => {
           currentSimonRound.value++;
           if (currentSimonRound.value > roundsToWinSimon) {
             gameMessage.value = "¡Has completado el desafío de Simón Dice!";
             gameOver.value = true;
-            emit("round-finished", { winner: "player" }); // El jugador ganó este mini-juego
+            emit("round-finished", { winner: "player" });
           } else {
-            addRandomStepToSequence(); // Alarga la secuencia
-            showSequence(); // Muestra la nueva secuencia
+            addRandomStepToSequence();
+            showSequence();
           }
-        }, 1500); // Pequeña pausa para el mensaje de "Correcto"
+        }, 1500);
       }
-      // Si no es el último paso y es correcto, simplemente espera el siguiente clic del jugador
     };
 
     // Inicia el mini-juego de Simón Dice
@@ -147,13 +134,16 @@ export default {
       gameStarted.value = true;
       gameOver.value = false;
       currentSimonRound.value = 1;
-      sequence.value = []; // Reinicia la secuencia
-      addRandomStepToSequence(); // Añade el primer paso
-      addRandomStepToSequence(); // Añade un segundo paso para empezar con 2 (configurable)
+      sequence.value = [];
+
+      // ¡Aquí está el cambio! Usamos initialSequenceLength
+      for (let i = 0; i < initialSequenceLength; i++) {
+        addRandomStepToSequence();
+      }
+
       showSequence();
     };
 
-    // Reinicia el mini-juego (si se presiona el botón "Jugar Otra Vez")
     const resetGame = () => {
       gameStarted.value = false;
       gameOver.value = false;
@@ -165,11 +155,8 @@ export default {
       isShowingSequence.value = false;
       isPlayerTurn.value = false;
       activeLight.value = null;
-      // No llamamos a startGame aquí, el botón lo hará.
     };
 
-    // Se ejecuta cuando el componente se carga en GameView por primera vez.
-    // Aseguramos que el estado esté limpio al inicio.
     onMounted(() => {
       resetGame();
     });
