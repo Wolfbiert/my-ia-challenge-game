@@ -1,80 +1,302 @@
 <template>
-  <div class="home-view">
-    <h1>Bienvenido al Desafío de la IA!</h1>
-    <p>
-      ¡Prepárate para poner a prueba tu ingenio contra el maestro de los
-      mini-juegos!
-    </p>
+  <div class="home-container">
+    <h1>¡Bienvenido al Desafío de la IA!</h1>
 
-    <div class="buttons-container">
-      <router-link to="/game">
-        <button class="game-button primary">Iniciar Juego</button>
-      </router-link>
-
-      <router-link to="/highscores">
-        <button class="game-button secondary">Puntuaciones Altas</button>
-      </router-link>
+    <div class="difficulty-selection">
+      <h2>Selecciona la Dificultad:</h2>
+      <div class="difficulty-options">
+        <button
+          :class="[
+            'difficulty-button',
+            { active: selectedDifficulty === 'facil' },
+          ]"
+          @click="selectDifficulty('facil')"
+        >
+          Fácil
+        </button>
+        <button
+          :class="[
+            'difficulty-button',
+            {
+              active: selectedDifficulty === 'normal',
+              locked: !unlockedDifficulties.includes('normal'),
+            },
+          ]"
+          @click="selectDifficulty('normal')"
+          :disabled="!unlockedDifficulties.includes('normal')"
+        >
+          Normal
+          <span
+            v-if="!unlockedDifficulties.includes('normal')"
+            class="lock-icon"
+            >🔒</span
+          >
+        </button>
+        <button
+          :class="[
+            'difficulty-button',
+            {
+              active: selectedDifficulty === 'dificil',
+              locked: !unlockedDifficulties.includes('dificil'),
+            },
+          ]"
+          @click="selectDifficulty('dificil')"
+          :disabled="!unlockedDifficulties.includes('dificil')"
+        >
+          Difícil
+          <span
+            v-if="!unlockedDifficulties.includes('dificil')"
+            class="lock-icon"
+            >🔒</span
+          >
+        </button>
+      </div>
     </div>
+
+    <button @click="startGame" class="start-game-button">
+      Comenzar Desafío
+    </button>
   </div>
 </template>
 
 <script>
-// No necesitamos mucha lógica aquí por ahora, ya que solo es la pantalla de bienvenida.
+import { ref, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router"; // Para navegar entre vistas
+
 export default {
   name: "HomeView",
+  setup() {
+    const router = useRouter(); // Instancia del router
+    const selectedDifficulty = ref("facil"); // Dificultad seleccionada por el jugador
+    const unlockedDifficulties = ref(["facil"]); // Niveles desbloqueados
+
+    const STORAGE_KEY = "iaChallengeGameProgress"; // Clave para localStorage
+
+    // Carga el progreso guardado desde localStorage
+    const loadProgress = () => {
+      const savedProgress = localStorage.getItem(STORAGE_KEY);
+      if (savedProgress) {
+        try {
+          const parsedProgress = JSON.parse(savedProgress);
+          if (parsedProgress.unlockedDifficulties) {
+            unlockedDifficulties.value = parsedProgress.unlockedDifficulties;
+            // Asegurar que la dificultad seleccionada esté desbloqueada
+            if (
+              !unlockedDifficulties.value.includes(selectedDifficulty.value)
+            ) {
+              selectedDifficulty.value = "facil"; // Vuelve a fácil si la seleccionada ya no está disponible (ej. si se borró dificil manualmente)
+            }
+          }
+        } catch (e) {
+          console.error("Error al parsear el progreso guardado:", e);
+          localStorage.removeItem(STORAGE_KEY); // Limpia datos corruptos
+        }
+      }
+    };
+
+    // Guarda el progreso en localStorage
+    const saveProgress = () => {
+      const progress = {
+        unlockedDifficulties: unlockedDifficulties.value,
+        // Aquí podrías guardar otras cosas como puntajes altos, etc.
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    };
+
+    // Desbloquea una dificultad específica y guarda
+    const unlockDifficulty = (level) => {
+      if (!unlockedDifficulties.value.includes(level)) {
+        unlockedDifficulties.value.push(level);
+        saveProgress();
+      }
+    };
+
+    // Selecciona una dificultad si está desbloqueada
+    const selectDifficulty = (difficulty) => {
+      if (unlockedDifficulties.value.includes(difficulty)) {
+        selectedDifficulty.value = difficulty;
+      } else {
+        alert(
+          `¡Tienes que completar el nivel "${getPreviousDifficulty(
+            difficulty
+          )}" para desbloquear "${difficulty}"!`
+        );
+      }
+    };
+
+    // Función auxiliar para obtener la dificultad anterior
+    const getPreviousDifficulty = (current) => {
+      if (current === "normal") return "facil";
+      if (current === "dificil") return "normal";
+      return null; // 'facil' no tiene anterior
+    };
+
+    // Inicia el juego y navega a GameView, pasando la dificultad
+    const startGame = () => {
+      router.push({
+        name: "game",
+        query: { difficulty: selectedDifficulty.value },
+      });
+    };
+
+    // Se ejecuta cuando el componente HomeView se monta
+    onMounted(() => {
+      loadProgress();
+      // Escuchar eventos personalizados desde GameView para desbloquear dificultades
+      window.addEventListener("unlockDifficulty", (event) => {
+        const levelToUnlock = event.detail.level;
+        unlockDifficulty(levelToUnlock);
+      });
+    });
+
+    // Limpieza: importante si usas addEventListener en window
+    // Este hook se ejecuta cuando el componente está a punto de ser "desmontado" o destruido
+    // Es una buena práctica para remover listeners y evitar fugas de memoria.
+    onUnmounted(() => {
+      // Asegúrate de importar onUnmounted de 'vue'
+      window.removeEventListener("unlockDifficulty", (event) => {
+        const levelToUnlock = event.detail.level;
+        unlockDifficulty(levelToUnlock);
+      });
+    });
+
+    return {
+      selectedDifficulty,
+      unlockedDifficulties,
+      selectDifficulty,
+      startGame,
+    };
+  },
 };
 </script>
 
 <style scoped>
-/* Los estilos con 'scoped' solo afectarán a este componente HomeView.vue */
-.home-view {
+.home-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(
+    135deg,
+    #f0f4f8,
+    #d9e2ec
+  ); /* Fondo degradado suave */
+  color: #333;
+  font-family: "Arial", sans-serif;
   padding: 20px;
 }
 
 h1 {
-  color: #42b983; /* Un color de Vue verde */
-  margin-bottom: 20px;
+  font-size: 3.5em;
+  color: #2c3e50;
+  margin-bottom: 40px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-p {
-  font-size: 1.1em;
-  margin-bottom: 30px;
+.difficulty-selection {
+  background-color: #ffffff;
+  padding: 30px 40px;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  margin-bottom: 50px;
+  text-align: center;
 }
 
-.buttons-container {
+.difficulty-selection h2 {
+  font-size: 1.8em;
+  color: #34495e;
+  margin-bottom: 25px;
+}
+
+.difficulty-options {
   display: flex;
-  flex-direction: column; /* Apila los botones verticalmente */
-  gap: 15px; /* Espacio entre los botones */
-  max-width: 300px; /* Limita el ancho del contenedor de botones */
-  margin: 0 auto; /* Centra el contenedor de botones */
+  gap: 25px;
+  justify-content: center;
 }
 
-.game-button {
-  padding: 12px 25px;
+.difficulty-button {
+  padding: 15px 30px;
   font-size: 1.2em;
-  border: none;
-  border-radius: 8px;
+  font-weight: bold;
+  border: 3px solid #ced4da;
+  border-radius: 10px;
+  background-color: #e9ecef;
+  color: #495057;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  width: 100%; /* Ocupa todo el ancho disponible en el contenedor */
+  transition: all 0.3s ease;
+  position: relative; /* Para el icono de candado */
 }
 
-.game-button.primary {
-  background-color: #42b983;
+.difficulty-button:hover:not(:disabled) {
+  background-color: #cfe2ff;
+  border-color: #007bff;
+  color: #0056b3;
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 123, 255, 0.2);
+}
+
+.difficulty-button.active {
+  background-color: #007bff;
+  border-color: #007bff;
   color: white;
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3);
 }
 
-.game-button.primary:hover {
-  background-color: #368a68;
+.difficulty-button.active:hover {
+  background-color: #0056b3;
 }
 
-.game-button.secondary {
-  background-color: #e0e0e0;
-  color: #333;
-  border: 1px solid #ccc;
+.difficulty-button.locked {
+  background-color: #f0f0f0;
+  color: #adb5bd;
+  border-color: #e0e0e0;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
-.game-button.secondary:hover {
-  background-color: #d0d0d0;
+.difficulty-button.locked:hover {
+  transform: none;
+  box-shadow: none;
+  background-color: #f0f0f0; /* No cambiar al hacer hover si está bloqueado */
+}
+
+.lock-icon {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  font-size: 1.5em;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 50%;
+  padding: 5px;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.start-game-button {
+  padding: 18px 45px;
+  font-size: 1.8em;
+  font-weight: bold;
+  background-color: #28a745; /* Verde vibrante */
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 8px 15px rgba(40, 167, 69, 0.3);
+  transition: background-color 0.3s ease, transform 0.2s ease,
+    box-shadow 0.3s ease;
+}
+
+.start-game-button:hover {
+  background-color: #218838;
+  transform: translateY(-5px);
+  box-shadow: 0 12px 20px rgba(40, 167, 69, 0.4);
+}
+
+.start-game-button:active {
+  transform: translateY(0);
+  box-shadow: 0 5px 10px rgba(40, 167, 69, 0.2);
 }
 </style>

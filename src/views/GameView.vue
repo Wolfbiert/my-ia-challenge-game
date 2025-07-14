@@ -33,6 +33,7 @@
 
 <script>
 import { ref, markRaw, onMounted } from "vue"; // markRaw es importante para componentes dinámicos
+import { useRoute } from "vue-router"; // <-- ¡NUEVA IMPORTACIÓN!
 import PiedraPapelTijera from "../components/MiniGames/PiedraPapelTijera.vue";
 import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue"; // <-- Nueva importación
 import SimonDice from "../components/MiniGames/SimonDice.vue"; // <-- Nueva importación
@@ -46,15 +47,17 @@ export default {
     // Otros mini-juegos se añadirán aquí en el futuro
   },
   setup() {
+    const route = useRoute(); // Instancia de la ruta actual
+
     // --- Datos Reactivos del Marcador Global ---
     const playerScore = ref(0);
     const iaScore = ref(0);
     const currentRound = ref(1); // Ronda actual del desafío
     const totalRounds = ref(3); // Número total de mini-juegos en un desafío
 
-    // --- NUEVO: Dificultad Global del Desafío ---
-    // eslint-disable-next-line no-unused-vars
-    const currentDifficulty = ref("normal"); // Por ahora hardcodeado, luego vendrá de HomeView
+    // --- Dificultad Global del Desafío (Ahora obtenida de la URL) ---
+    // 'facil' es el valor por defecto si no se especifica en la URL (aunque siempre debería venir de HomeView)
+    const currentDifficulty = ref(route.query.difficulty || "facil");
 
     // --- Gestión de Mini-Juegos ---
     // Array de mini-juegos disponibles. Usamos 'markRaw' para que Vue no intente
@@ -74,32 +77,63 @@ export default {
     // Estado del desafío
     const challengeEnded = ref(false); // true si el desafío ha terminado
 
+    // --- Lógica de Dificultad y Desbloqueo ---
+    const handleChallengeEnd = () => {
+      challengeEnded.value = true;
+      console.log("¡Desafío terminado!");
+      console.log(
+        `Resultado final: Jugador ${playerScore.value} - IA ${iaScore.value}`
+      );
+
+      // Lógica para desbloquear la siguiente dificultad
+      if (playerScore.value > iaScore.value) {
+        let nextDifficultyToUnlock = null;
+        if (currentDifficulty.value === "facil") {
+          nextDifficultyToUnlock = "normal";
+        } else if (currentDifficulty.value === "normal") {
+          nextDifficultyToUnlock = "dificil";
+        }
+
+        if (nextDifficultyToUnlock) {
+          // Emitir un evento global para que HomeView lo escuche
+          window.dispatchEvent(
+            new CustomEvent("unlockDifficulty", {
+              detail: { level: nextDifficultyToUnlock },
+            })
+          );
+          console.log(`¡Nivel "${nextDifficultyToUnlock}" desbloqueado!`);
+        }
+      }
+      // TODO: Lógica para mostrar resultados finales y opción de guardar puntuación
+      currentMiniGameComponent.value = null; // O muestra un componente de "Desafío Terminado"
+    };
+
     // --- Lógica de Inicio y Selección de Mini-Juegos ---
     const selectNextMiniGame = () => {
       if (currentRound.value <= totalRounds.value) {
-        // Lógica para seleccionar el siguiente juego. Por ahora, seleccionamos aleatoriamente
-        // de los disponibles que no se han jugado aún en este desafío.
         const unplayedGames = availableMiniGames.filter(
-          (game) => !playedMiniGames.value.includes(game.name) // Filtra por nombre del componente
+          (game) => !playedMiniGames.value.includes(game.name)
         );
 
         if (unplayedGames.length > 0) {
           const randomIndex = Math.floor(Math.random() * unplayedGames.length);
           currentMiniGameComponent.value = unplayedGames[randomIndex];
-          playedMiniGames.value.push(unplayedGames[randomIndex].name); // Registra el nombre del juego jugado
+          playedMiniGames.value.push(unplayedGames[randomIndex].name);
         } else {
-          // Si ya se jugaron todos los juegos disponibles (raro si totalRounds es menor que availableMiniGames.length)
-          // o si solo tenemos 1 juego por ahora y currentRound es 1, simplemente reinicia o selecciona el mismo.
-          console.warn(
-            "No hay mini-juegos sin jugar disponibles. Reiniciando lista o seleccionando el primero."
+          // Si se jugaron todos los juegos o el número de rondas es menor que los juegos disponibles,
+          // reinicia la lista de jugados y selecciona aleatoriamente de todos.
+          // Esto solo ocurriría si totalRounds es menor que availableMiniGames.length
+          // Para nuestro caso actual (3 rondas, 3 juegos), no debería pasar hasta que tengamos más juegos.
+          // Pero es una buena medida de seguridad.
+          playedMiniGames.value = []; // Reinicia para la siguiente "vuelta" de juegos
+          const randomIndex = Math.floor(
+            Math.random() * availableMiniGames.length
           );
-          currentMiniGameComponent.value = availableMiniGames[0]; // Temporalmente, selecciona el primero
+          currentMiniGameComponent.value = availableMiniGames[randomIndex];
+          playedMiniGames.value.push(availableMiniGames[randomIndex].name);
         }
       } else {
-        challengeEnded.value = true;
-        console.log("¡Desafío terminado!");
-        // TODO: Lógica para mostrar resultados finales y opción de guardar puntuación
-        currentMiniGameComponent.value = null; // O muestra un componente de "Desafío Terminado"
+        handleChallengeEnd(); // Llama a la nueva función al finalizar el desafío
       }
     };
 
@@ -119,7 +153,6 @@ export default {
     };
 
     // --- Manejador de Ronda Terminada ---
-    // Este método se ejecutará cuando cualquier mini-juego emita 'round-finished'.
     const handleRoundFinished = (payload) => {
       console.log("Ronda terminada:", payload);
 
@@ -133,18 +166,12 @@ export default {
         console.log("Ronda empatada.");
       }
 
-      // Avanzar a la siguiente ronda
       currentRound.value++;
-      // Retraso para que el jugador vea el resultado antes de cargar el siguiente juego
       setTimeout(() => {
-        selectNextMiniGame(); // Selecciona el siguiente mini-juego
-      }, 1500); // Espera 1.5 segundos
+        selectNextMiniGame();
+      }, 1500);
     };
 
-    // --- Lifecycle Hook: mounted ---
-    // 'onMounted' es un hook del ciclo de vida de Vue 3.
-    // La función dentro de onMounted se ejecuta solo una vez, cuando el componente GameView se ha "montado"
-    // en el DOM y está listo para ser usado. Es perfecto para iniciar cosas como el desafío.
     onMounted(() => {
       startChallenge();
     });
@@ -157,6 +184,7 @@ export default {
       totalRounds,
       currentMiniGameComponent,
       challengeEnded,
+      currentDifficulty,
       handleRoundFinished,
       resetChallenge,
     };
