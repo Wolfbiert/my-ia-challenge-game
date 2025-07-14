@@ -1,17 +1,13 @@
 <template>
   <div class="game-container">
     <div class="minigame-area">
-      <h2>Aquí se cargará el Mini-Juego</h2>
-      <p>
-        Este espacio se actualizará con Piedra, Papel o Tijera, Adivina el
-        Número, etc.
-      </p>
+      <PiedraPapelTijera @round-finished="handleRoundFinished" />
     </div>
 
     <div class="ia-sidebar">
       <div class="scoreboard">
-        <h3>Marcador</h3>
-        <p>Tú: 0 | IA: 0</p>
+        <h3>Marcador Desafío</h3>
+        <p>Tú: {{ playerScore }} | IA: {{ iaScore }}</p>
       </div>
 
       <div class="ia-display">
@@ -24,53 +20,89 @@
 </template>
 
 <script>
+import { ref } from "vue"; // Necesitamos 'ref' para las puntuaciones
+import PiedraPapelTijera from "../components/MiniGames/PiedraPapelTijera.vue"; // <-- Importa tu componente
+
 export default {
-  name: "GameView", // Nombre del componente
-  // Por ahora no necesitamos data ni methods, ya que solo estamos estructurando la UI
+  name: "GameView",
+  components: {
+    PiedraPapelTijera, // <-- Declara el componente para que Vue lo reconozca en el template
+  },
+  setup() {
+    // --- Datos Reactivos del Marcador Global ---
+    // 'playerScore' y 'iaScore' guardarán las victorias en este desafío global.
+    const playerScore = ref(0);
+    const iaScore = ref(0);
+
+    // --- Métodos (Lógica Principal del Juego) ---
+    // Este método se ejecutará cuando el componente PiedraPapelTijera emita 'round-finished'.
+    // 'payload' contendrá el objeto que enviamos ({ winner: 'player' | 'ia' | 'tie' }).
+    const handleRoundFinished = (payload) => {
+      console.log("Ronda terminada:", payload); // Para depurar en la consola (Ctrl+Shift+I en Electron)
+
+      if (payload.winner === "player") {
+        playerScore.value++; // Incrementa la puntuación del jugador.
+        console.log("¡Ganó el jugador! Puntuación:", playerScore.value);
+      } else if (payload.winner === "ia") {
+        iaScore.value++; // Incrementa la puntuación de la IA.
+        console.log("¡Ganó la IA! Puntuación:", iaScore.value);
+      } else {
+        console.log("Ronda empatada."); // No incrementa puntuación en empate.
+      }
+
+      // TODO: Aquí en el futuro, podrías añadir lógica para:
+      // 1. Decidir si el desafío global ha terminado (ej. "el primero en ganar 3 mini-juegos").
+      // 2. Cargar el siguiente mini-juego.
+      // 3. Manejar los eventos sorpresa de la IA.
+    };
+
+    // 'setup' debe devolver todo lo que quieres que esté disponible en el template.
+    return {
+      playerScore,
+      iaScore,
+      handleRoundFinished,
+    };
+  },
 };
 </script>
 
 <style scoped>
-/* Estilos para el contenedor principal de la vista de juego */
+/* Mantén tus estilos CSS que definiste anteriormente para GameView.
+   No es necesario cambiarlos a menos que quieras ajustar el layout. */
 .game-container {
-  display: flex; /* Usamos Flexbox para organizar las dos columnas principales (minigame y ia-sidebar) */
-  justify-content: center; /* Centra el contenido horizontalmente */
-  align-items: flex-start; /* Alinea los elementos al inicio (arriba) */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   padding: 20px;
-  gap: 20px; /* Espacio entre el área del mini-juego y la barra lateral de la IA */
-  height: calc(
-    100vh - 40px
-  ); /* Ocupa casi toda la altura de la ventana menos el padding */
-  box-sizing: border-box; /* Incluye padding en el cálculo del tamaño */
+  gap: 20px;
+  height: calc(100vh - 40px);
+  box-sizing: border-box;
 }
 
-/* Estilos para el área donde se mostrarán los mini-juegos */
 .minigame-area {
-  flex-grow: 2; /* Permite que esta área crezca y ocupe más espacio */
+  flex-grow: 2;
   background-color: #ffffff;
-  border: 2px solid #42b983; /* Borde verde vibrante */
-  border-radius: 15px; /* Bordes redondeados */
+  border: 2px solid #42b983;
+  border-radius: 15px;
   padding: 30px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  min-height: 400px; /* Altura mínima para que sea visible */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra suave */
+  min-height: 400px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Estilos para la barra lateral de la IA (derecha) */
 .ia-sidebar {
-  flex-grow: 1; /* Permite que esta área crezca menos que el minigame-area */
+  flex-grow: 1;
   display: flex;
-  flex-direction: column; /* Apila el marcador y la IA verticalmente */
-  gap: 20px; /* Espacio entre el marcador y la IA */
-  max-width: 300px; /* Ancho máximo para la barra lateral */
-  min-width: 250px; /* Ancho mínimo para la barra lateral */
+  flex-direction: column;
+  gap: 20px;
+  max-width: 300px;
+  min-width: 250px;
 }
 
-/* Estilos para el marcador */
 .scoreboard {
   background-color: #f8f8f8;
   border: 1px solid #ddd;
@@ -80,7 +112,6 @@ export default {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* Estilos para el área de visualización de la IA */
 .ia-display {
   background-color: #f0f0f0;
   border: 1px solid #ccc;
@@ -88,7 +119,7 @@ export default {
   padding: 15px;
   text-align: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  flex-grow: 1; /* Permite que el display de IA ocupe el espacio restante */
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -96,7 +127,7 @@ export default {
 }
 
 .ia-placeholder {
-  font-size: 80px; /* Tamaño grande para el emoji de robot temporal */
+  font-size: 80px;
   margin-top: 10px;
 }
 

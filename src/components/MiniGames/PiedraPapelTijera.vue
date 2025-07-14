@@ -28,63 +28,56 @@
 import { ref } from "vue"; // Importamos 'ref' para crear variables reactivas
 
 export default {
-  name: "PiedraPapelTijera", // Nombre del componente
+  name: "PiedraPapelTijera",
 
-  setup() {
+  // El segundo argumento 'context' nos da acceso a la función 'emit'.
+  // Podemos desestructurarlo para usar 'emit' directamente.
+  setup(props, { emit }) {
+    // <-- ¡CAMBIO AQUÍ!
     // --- Datos Reactivos ---
-    // 'ref' es una función de Vue 3 (Composition API) que hace que una variable sea reactiva.
-    // Cuando el valor de una 'ref' cambia, Vue sabe que debe actualizar la parte de la UI que usa esa variable.
-    const playerChoice = ref(null); // Elección del jugador (inicialmente nula)
-    const iaChoice = ref(null); // Elección de la IA (inicialmente nula)
-    const result = ref(""); // Resultado de la ronda (inicialmente vacío)
-    const choices = ["piedra", "papel", "tijera"]; // Opciones posibles
+    const playerChoice = ref(null);
+    const iaChoice = ref(null);
+    const result = ref("");
+    const choices = ["piedra", "papel", "tijera"];
 
     // --- Métodos (Lógica del Juego) ---
-    // Este método se llama cuando el jugador hace clic en un botón de elección.
     const makeChoice = (choice) => {
-      playerChoice.value = choice; // Actualiza la elección del jugador. ¡Usa .value para acceder/modificar refs!
-      iaChoice.value = choices[Math.floor(Math.random() * choices.length)]; // IA elige al azar
+      playerChoice.value = choice;
+      iaChoice.value = choices[Math.floor(Math.random() * choices.length)];
 
-      // Determina el resultado de la ronda
       if (playerChoice.value === iaChoice.value) {
         result.value = "Empate";
+        // Podemos emitir un evento 'round-finished' incluso para empates si GameView necesita saberlo
+        emit("round-finished", { winner: "tie" }); // <-- 'emit' ahora está definido
       } else if (
         (playerChoice.value === "piedra" && iaChoice.value === "tijera") ||
         (playerChoice.value === "papel" && iaChoice.value === "piedra") ||
         (playerChoice.value === "tijera" && iaChoice.value === "papel")
       ) {
         result.value = "Ganaste";
-        // Cuando el jugador gana, emitimos un evento para que GameView lo sepa
-        // emit() es una función que nos permite enviar datos del hijo al padre
-        // 'round-finished' es el nombre del evento, y el objeto es la "carga útil"
-        emit("round-finished", { winner: "player" });
+        emit("round-finished", { winner: "player" }); // <-- 'emit' ahora está definido
       } else {
         result.value = "Perdiste";
-        // Cuando la IA gana, emitimos el evento con el ganador 'ia'
-        emit("round-finished", { winner: "ia" });
+        emit("round-finished", { winner: "ia" }); // <-- 'emit' ahora está definido
       }
     };
 
-    // Este método reinicia la ronda
     const resetGame = () => {
       playerChoice.value = null;
       iaChoice.value = null;
       result.value = "";
     };
 
-    // 'setup' debe devolver todo lo que quieres que esté disponible en el template.
     return {
       playerChoice,
       iaChoice,
       result,
       makeChoice,
       resetGame,
-      choices, // Aunque no se usa directamente en el template, es bueno devolverlo si se necesitara.
+      choices,
     };
   },
 
-  // La propiedad 'emits' declara los eventos que este componente puede emitir.
-  // Es una buena práctica para documentar y validar los eventos.
   emits: ["round-finished"],
 };
 </script>
