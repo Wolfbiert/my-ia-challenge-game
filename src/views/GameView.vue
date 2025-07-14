@@ -34,11 +34,13 @@
 <script>
 import { ref, markRaw, onMounted } from "vue"; // markRaw es importante para componentes dinámicos
 import PiedraPapelTijera from "../components/MiniGames/PiedraPapelTijera.vue";
+import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue"; // <-- Nueva importación
 
 export default {
   name: "GameView",
   components: {
-    PiedraPapelTijera, // Necesitamos registrarlo para que Vue lo pueda instanciar
+    PiedraPapelTijera,
+    AdivinaNumero, // <-- Añade el nuevo componente aquí
     // Otros mini-juegos se añadirán aquí en el futuro
   },
   setup() {
@@ -54,7 +56,8 @@ export default {
     // Esto es una buena práctica para componentes dinámicos pasados como valores.
     const availableMiniGames = markRaw([
       PiedraPapelTijera,
-      // Aquí añadiremos AdivinaNumero y SimónDice más adelante
+      AdivinaNumero, // <-- Añade el nuevo componente aquí
+      // SimónDice se añadirá aquí más tarde
     ]);
 
     // El componente actual que se está mostrando en el área del mini-juego.
