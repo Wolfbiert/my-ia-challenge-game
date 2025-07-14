@@ -4,7 +4,10 @@
     <p class="round-info">Ronda Interna: {{ currentSimonRound }}</p>
     <p class="game-message" :class="messageType">{{ gameMessage }}</p>
 
-    <div class="simon-buttons-grid">
+    <div
+      class="simon-buttons-grid"
+      :class="{ 'sequence-playing': isShowingSequence }"
+    >
       <div
         v-for="(color, index) in colors"
         :key="color"
@@ -163,6 +166,13 @@ export default {
       const clickedColor = colors[index];
       playerSequence.value.push(clickedColor);
       playSound(clickedColor); // <--- ¡Reproducir sonido al clic del jugador!
+
+      // Agregue una respuesta visual rápida al clic del jugador
+      const originalLight = activeLight.value; // Almacenar la luz activa actual si la hay
+      activeLight.value = clickedColor; // Activar brevemente el color en el que se hizo clic
+      setTimeout(() => {
+        activeLight.value = originalLight; // Revertir después de un corto tiempo
+      }, 100); // 100ms flash
 
       if (
         playerSequence.value[playerSequence.value.length - 1] !==
@@ -422,5 +432,27 @@ h2 {
 .reset-button:active {
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Añadir clase al grid de botones cuando la secuencia se está mostrando */
+.simon-buttons-grid.sequence-playing {
+  pointer-events: none; /* Deshabilita clics en el contenedor */
+  opacity: 0.7; /* Reduce la opacidad para indicar inactividad */
+  filter: blur(1px); /* Efecto de desenfoque sutil */
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.simon-button {
+  /* ... (existing styles) ... */
+  /* Asegúrate de que todas las propiedades con cambios tengan una transición */
+  transition: background-color 0.2s ease-out, transform 0.1s ease-out,
+    box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+/* Añadir un efecto de click para el jugador, distinto al brillo de la IA */
+.simon-button.clickable:active {
+  transform: scale(0.92); /* Ligeramente más pequeño que el 0.95 anterior */
+  box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.5),
+    inset 0 0 10px 3px rgba(0, 0, 0, 0.3); /* Nuevo efecto de sombra interna */
 }
 </style>
