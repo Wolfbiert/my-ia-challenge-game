@@ -52,6 +52,9 @@ export default {
     const currentRound = ref(1); // Ronda actual del desafío
     const totalRounds = ref(3); // Número total de mini-juegos en un desafío
 
+    // --- NUEVO: Dificultad Global del Desafío ---
+    const currentDifficulty = ref("normal"); // Por ahora hardcodeado, luego vendrá de HomeView
+
     // --- Gestión de Mini-Juegos ---
     // Array de mini-juegos disponibles. Usamos 'markRaw' para que Vue no intente
     // hacer reactivo el componente en sí, solo su instancia cuando se monta.

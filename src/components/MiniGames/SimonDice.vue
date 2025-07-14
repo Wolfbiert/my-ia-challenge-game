@@ -35,20 +35,85 @@
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch, markRaw } from "vue"; // Añadimos 'watch' si aún no está
 
 export default {
   name: "SimonDice",
-
   emits: ["round-finished"],
+  props: {
+    // <--- ¡NUEVA SECCIÓN DE PROPS!
+    difficulty: {
+      type: String,
+      default: "normal", // Valor por defecto si no se pasa la prop
+      validator: (value) => ["facil", "normal", "dificil"].includes(value),
+    },
+  },
 
   setup(props, { emit }) {
-    // --- Configuración del Juego ---
+    // --- Configuración del Juego (ahora dependiente de la dificultad) ---
     const colors = ["red", "blue", "green", "yellow"];
-    const initialSequenceLength = 2; // Longitud inicial de la secuencia
-    const roundsToWinSimon = 3; // Cuántas rondas internas de Simon debe ganar el jugador para ganar el mini-juego
+    let initialSequenceLength = 0;
+    let roundsToWinSimon = 0;
+    let lightDuration = 0; // Duración de la luz para la secuencia de la IA
+    let pauseBetweenLights = 0; // Pausa entre luces de la secuencia de la IA
 
-    // --- Datos Reactivos del Estado del Juego ---
+    // Función para configurar los parámetros del juego según la dificultad
+    const setGameParameters = (difficulty) => {
+      switch (difficulty) {
+        case "facil":
+          initialSequenceLength = 2;
+          roundsToWinSimon = 2; // Gana Simon Dice más rápido
+          lightDuration = 800; // Luces más largas
+          pauseBetweenLights = 400; // Pausas más largas
+          break;
+        case "normal":
+          initialSequenceLength = 3;
+          roundsToWinSimon = 3;
+          lightDuration = 600;
+          pauseBetweenLights = 300;
+          break;
+        case "dificil":
+          initialSequenceLength = 4;
+          roundsToWinSimon = 4; // Más rondas para ganar
+          lightDuration = 400; // Luces más cortas
+          pauseBetweenLights = 200; // Pausas más cortas
+          break;
+        default: // Por si acaso, si no se pasa nada válido
+          setGameParameters("normal"); // Vuelve a normal
+          return;
+      }
+      // Asegurarse de que el juego se reinicie con la nueva dificultad si ya se está jugando
+      if (gameStarted.value || gameOver.value) {
+        resetGame();
+        startGame(); // Reinicia el juego con los nuevos parámetros
+      } else {
+        // Si el juego no ha empezado, solo prepara el estado inicial
+        resetGame();
+      }
+    };
+
+    // --- NUEVO: Objetos de Audio ---
+    // Creamos objetos de Audio una sola vez para cada color
+    // Usamos 'markRaw' porque los objetos Audio no necesitan ser reactivos y
+    // Vue podría intentar convertirlos de forma ineficiente.
+    const audioMap = markRaw({
+      red: new Audio(process.env.BASE_URL + "sounds/red.mp3"),
+      blue: new Audio(process.env.BASE_URL + "sounds/blue.mp3"),
+      green: new Audio(process.env.BASE_URL + "sounds/green.mp3"),
+      yellow: new Audio(process.env.BASE_URL + "sounds/yellow.mp3"),
+    });
+
+    // Función para reproducir el sonido de un color
+    const playSound = (color) => {
+      if (audioMap[color]) {
+        audioMap[color].currentTime = 0; // Reinicia el sonido si ya se está reproduciendo
+        audioMap[color]
+          .play()
+          .catch((e) => console.error("Error al reproducir audio:", e));
+      }
+    };
+
+    // --- Datos Reactivos del Estado del Juego (resto del setup es igual) ---
     const gameStarted = ref(false);
     const gameOver = ref(false);
     const gameMessage = ref('Presiona "¡Empezar!" para jugar.');
@@ -62,8 +127,7 @@ export default {
 
     const currentSimonRound = ref(1);
 
-    // --- Lógica del Juego ---
-
+    // --- Lógica del Juego (modificada para sonidos) ---
     const addRandomStepToSequence = () => {
       const randomColorIndex = Math.floor(Math.random() * colors.length);
       sequence.value.push(colors[randomColorIndex]);
@@ -80,9 +144,10 @@ export default {
 
       for (let i = 0; i < sequence.value.length; i++) {
         activeLight.value = sequence.value[i];
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        playSound(sequence.value[i]); // <--- ¡Reproducir sonido aquí!
+        await new Promise((resolve) => setTimeout(resolve, lightDuration));
         activeLight.value = null;
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, pauseBetweenLights));
       }
 
       isShowingSequence.value = false;
@@ -97,12 +162,13 @@ export default {
 
       const clickedColor = colors[index];
       playerSequence.value.push(clickedColor);
+      playSound(clickedColor); // <--- ¡Reproducir sonido al clic del jugador!
 
       if (
         playerSequence.value[playerSequence.value.length - 1] !==
         sequence.value[playerSequence.value.length - 1]
       ) {
-        gameMessage.value = "¡Secuencia incorrecta! Perdiste el mini-juego.";
+        gameMessage.value = `¡Secuencia incorrecta! Perdiste el mini-juego en la ronda ${currentSimonRound.value}.`;
         messageType.value = "error";
         gameOver.value = true;
         isPlayerTurn.value = false;
@@ -129,15 +195,14 @@ export default {
       }
     };
 
-    // Inicia el mini-juego de Simón Dice
     const startGame = () => {
       gameStarted.value = true;
       gameOver.value = false;
       currentSimonRound.value = 1;
       sequence.value = [];
 
-      // ¡Aquí está el cambio! Usamos initialSequenceLength
       for (let i = 0; i < initialSequenceLength; i++) {
+        // Usa la longitud inicial configurada
         addRandomStepToSequence();
       }
 
@@ -157,9 +222,19 @@ export default {
       activeLight.value = null;
     };
 
+    // --- Lifecycle Hooks y Watchers ---
     onMounted(() => {
-      resetGame();
+      // Configura los parámetros iniciales de acuerdo a la prop 'difficulty' al montarse
+      setGameParameters(props.difficulty);
     });
+
+    // Observa los cambios en la prop 'difficulty' y reconfigura el juego
+    watch(
+      () => props.difficulty,
+      (newDifficulty) => {
+        setGameParameters(newDifficulty);
+      }
+    );
 
     return {
       colors,
