@@ -1,139 +1,141 @@
 <template>
-  <div class="adivina-numero-game-container">
+  <div class="guess-number-game-container">
     <h2>Adivina el Número</h2>
-    <p class="attempts-info">Intentos restantes: {{ attemptsLeft }}</p>
+    <p class="game-message" :class="messageType">{{ message }}</p>
+    <p class="attempts-info">Intentos: {{ attempts }} / {{ maxAttempts }}</p>
 
-    <p class="game-message" :class="messageType">{{ gameMessage }}</p>
-
-    <div class="guess-input-section" v-if="!gameOver">
+    <div class="input-section">
       <input
         type="number"
         v-model.number="playerGuess"
-        :min="minNumber"
-        :max="maxNumber"
-        placeholder="Introduce tu número"
+        :placeholder="`Ingresa un número entre ${minRange} y ${maxRange}`"
         @keyup.enter="checkGuess"
-        class="guess-input"
       />
-      <button
-        @click="checkGuess"
-        :disabled="attemptsLeft === 0"
-        class="guess-button"
-      >
-        Adivinar
-      </button>
+      <button @click="checkGuess">Adivinar</button>
     </div>
 
-    <div class="game-over-section" v-if="gameOver">
-      <p>
-        El número secreto era: <strong>{{ secretNumber }}</strong>
-      </p>
-      <button @click="resetGame" class="reset-button">Jugar Otra Vez</button>
-    </div>
+    <button @click="resetGame" class="reset-button">Reiniciar</button>
   </div>
 </template>
 
 <script>
-import { ref, watch, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 
 export default {
-  name: "AdivinaNumero", // Nombre del componente
-
-  // La propiedad 'emits' declara los eventos que este componente puede emitir.
+  name: "AdivinaNumero",
   emits: ["round-finished"],
-
+  props: {
+    difficulty: {
+      type: String,
+      default: "normal",
+      validator: (value) => ["facil", "normal", "dificil"].includes(value),
+    },
+  },
   setup(props, { emit }) {
-    // --- Datos del Juego ---
-    const secretNumber = ref(0);
+    const randomNumber = ref(0);
     const playerGuess = ref(null);
-    const gameMessage = ref("Adivina el número secreto entre 0 y 100.");
-    const messageType = ref("info"); // Para aplicar estilos dinámicos (info, success, error)
-    const attemptsLeft = ref(7); // Número de intentos
-    const maxAttempts = 7; // Total de intentos para reiniciar
-    const gameOver = ref(false); // Bandera para saber si el juego ha terminado
+    const message = ref("");
+    const messageType = ref("info"); // info, success, error, warning
+    const attempts = ref(0);
+    let maxAttempts = 0; // Dependerá de la dificultad
+    let minRange = 0; // Rango mínimo
+    let maxRange = 0; // Rango máximo
 
-    // --- Parámetros del Rango (pueden ser props en el futuro) ---
-    const minNumber = 0;
-    const maxNumber = 100;
+    // Función para configurar los parámetros del juego según la dificultad
+    const setGameParameters = (difficulty) => {
+      switch (difficulty) {
+        case "facil":
+          minRange = 1;
+          maxRange = 10;
+          maxAttempts = 5;
+          break;
+        case "normal":
+          minRange = 1;
+          maxRange = 20;
+          maxAttempts = 7;
+          break;
+        case "dificil":
+          minRange = 1;
+          maxRange = 30;
+          maxAttempts = 8; // Más intentos pero rango más grande
+          break;
+        default: // Por defecto a normal
+          minRange = 1;
+          maxRange = 20;
+          maxAttempts = 7;
+          break;
+      }
+      initializeGame(); // Reinicia el juego con los nuevos parámetros
+    };
 
-    // --- Lógica del Juego ---
-    const generateSecretNumber = () => {
-      secretNumber.value =
-        Math.floor(Math.random() * (maxNumber - minNumber + 1)) + minNumber;
-      console.log("Número secreto (para depuración):", secretNumber.value); // Solo para desarrollo
+    const generateRandomNumber = () => {
+      randomNumber.value =
+        Math.floor(Math.random() * (maxRange - minRange + 1)) + minRange;
+    };
+
+    const initializeGame = () => {
+      generateRandomNumber();
+      playerGuess.value = null;
+      message.value = `Adivina un número entre ${minRange} y ${maxRange}. Tienes ${maxAttempts} intentos.`;
+      messageType.value = "info";
+      attempts.value = 0;
     };
 
     const checkGuess = () => {
-      if (gameOver.value) return; // No permitir más jugadas si el juego ya terminó
-
-      // Validar entrada del jugador
-      if (
-        playerGuess.value === null ||
-        playerGuess.value < minNumber ||
-        playerGuess.value > maxNumber
-      ) {
-        gameMessage.value = `Por favor, introduce un número válido entre ${minNumber} y ${maxNumber}.`;
-        messageType.value = "error";
+      if (playerGuess.value === null || playerGuess.value === "") {
+        message.value = "Por favor, ingresa un número.";
+        messageType.value = "warning";
         return;
       }
 
-      attemptsLeft.value--; // Reduce los intentos restantes
+      attempts.value++;
 
-      if (playerGuess.value === secretNumber.value) {
-        gameMessage.value = `¡Felicidades! Adivinaste el número ${secretNumber.value}.`;
+      if (parseInt(playerGuess.value) === randomNumber.value) {
+        message.value = `¡Felicidades! Adivinaste el número ${randomNumber.value} en ${attempts.value} intentos.`;
         messageType.value = "success";
-        gameOver.value = true;
-        emit("round-finished", { winner: "player" }); // El jugador ganó la ronda
-      } else if (attemptsLeft.value === 0) {
-        gameMessage.value = `¡Oh no! Se te acabaron los intentos. El número era ${secretNumber.value}.`;
+        emit("round-finished", { winner: "player" });
+      } else if (attempts.value >= maxAttempts) {
+        message.value = `¡Se acabaron los intentos! El número era ${randomNumber.value}. Perdiste esta ronda.`;
         messageType.value = "error";
-        gameOver.value = true;
-        emit("round-finished", { winner: "ia" }); // La IA ganó la ronda
-      } else if (playerGuess.value < secretNumber.value) {
-        gameMessage.value = `El número es más ALTO.`;
+        emit("round-finished", { winner: "ia" });
+      } else if (parseInt(playerGuess.value) < randomNumber.value) {
+        message.value = `El número es mayor. Te quedan ${
+          maxAttempts - attempts.value
+        } intentos.`;
         messageType.value = "info";
       } else {
-        gameMessage.value = `El número es más BAJO.`;
+        message.value = `El número es menor. Te quedan ${
+          maxAttempts - attempts.value
+        } intentos.`;
         messageType.value = "info";
       }
-
-      // Limpiar la entrada después de cada intento
-      playerGuess.value = null;
+      playerGuess.value = null; // Limpiar el input
     };
 
     const resetGame = () => {
-      generateSecretNumber();
-      playerGuess.value = null;
-      gameMessage.value = `Adivina el número secreto entre ${minNumber} y ${maxNumber}.`;
-      messageType.value = "info";
-      attemptsLeft.value = maxAttempts; // Restablecer intentos
-      gameOver.value = false;
+      initializeGame();
     };
 
-    // --- Lifecycle Hook ---
-    // Se ejecuta cuando el componente se monta por primera vez.
     onMounted(() => {
-      resetGame(); // Genera el primer número secreto al iniciar el juego
+      // Configura los parámetros iniciales de acuerdo a la prop 'difficulty' al montarse
+      setGameParameters(props.difficulty);
     });
 
-    // Opcional: watch para depuración o efectos secundarios
-    watch(attemptsLeft, (newValue) => {
-      if (newValue <= 2 && newValue > 0 && !gameOver.value) {
-        gameMessage.value = `¡Quedan pocos intentos! ${newValue} restantes.`;
-        messageType.value = "warning";
+    watch(
+      () => props.difficulty,
+      (newDifficulty) => {
+        setGameParameters(newDifficulty);
       }
-    });
+    );
 
-    // Se exponen las variables y funciones para que estén disponibles en el template
     return {
-      secretNumber,
       playerGuess,
-      gameMessage,
+      message,
       messageType,
-      attemptsLeft,
-      minNumber,
-      maxNumber,
-      gameOver,
+      attempts,
+      maxAttempts, // Retornar maxAttempts para mostrarlo en el template si quieres
+      minRange, // Retornar para mostrar en el template
+      maxRange, // Retornar para mostrar en el template
       checkGuess,
       resetGame,
     };

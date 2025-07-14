@@ -1,84 +1,156 @@
 <template>
-  <div class="ppt-game-container">
+  <div class="piedra-papel-tijera-game-container">
     <h2>Piedra, Papel o Tijera</h2>
+    <p class="game-message" :class="messageType">{{ gameMessage }}</p>
 
-    <div class="player-choices">
-      <button @click="makeChoice('piedra')" class="choice-button">
+    <div class="choices-buttons">
+      <button @click="playRound('piedra')" :disabled="playerChoice !== null">
         Piedra
       </button>
-      <button @click="makeChoice('papel')" class="choice-button">Papel</button>
-      <button @click="makeChoice('tijera')" class="choice-button">
+      <button @click="playRound('papel')" :disabled="playerChoice !== null">
+        Papel
+      </button>
+      <button @click="playRound('tijera')" :disabled="playerChoice !== null">
         Tijera
       </button>
     </div>
 
-    <div v-if="playerChoice" class="results-display">
-      <p>Tú elegiste: **{{ playerChoice.toUpperCase() }}**</p>
-      <p>La IA eligió: **{{ iaChoice.toUpperCase() }}**</p>
-      <h3>¡{{ result }}!</h3>
-      <button @click="resetGame" class="reset-button">Jugar Otra Ronda</button>
+    <div v-if="playerChoice" class="round-summary">
+      <p>Tú elegiste: {{ playerChoice }}</p>
+      <p>La IA eligió: {{ iaChoice }}</p>
+      <p class="result" :class="messageType">{{ result }}</p>
     </div>
-    <div v-else class="waiting-message">
-      <p>Haz tu elección...</p>
-    </div>
+
+    <button v-if="result" @click="resetGame" class="reset-button">
+      Jugar Otra Ronda
+    </button>
   </div>
 </template>
 
 <script>
-import { ref } from "vue"; // Importamos 'ref' para crear variables reactivas
+import { ref, onMounted, watch } from "vue";
 
 export default {
   name: "PiedraPapelTijera",
-
-  // El segundo argumento 'context' nos da acceso a la función 'emit'.
-  // Podemos desestructurarlo para usar 'emit' directamente.
+  emits: ["round-finished"],
+  props: {
+    difficulty: {
+      type: String,
+      default: "normal",
+      validator: (value) => ["facil", "normal", "dificil"].includes(value),
+    },
+  },
   setup(props, { emit }) {
-    // <-- ¡CAMBIO AQUÍ!
-    // --- Datos Reactivos ---
     const playerChoice = ref(null);
     const iaChoice = ref(null);
     const result = ref("");
+    const gameMessage = ref("Elige tu jugada...");
+    const messageType = ref("info"); // info, success, error, warning
     const choices = ["piedra", "papel", "tijera"];
 
-    // --- Métodos (Lógica del Juego) ---
-    const makeChoice = (choice) => {
-      playerChoice.value = choice;
-      iaChoice.value = choices[Math.floor(Math.random() * choices.length)];
+    // --- Configuración de IA por Dificultad ---
+    let iaPredictionChance = 0; // Probabilidad de que la IA intente predecir la jugada ganadora
 
-      if (playerChoice.value === iaChoice.value) {
-        result.value = "Empate";
-        // Podemos emitir un evento 'round-finished' incluso para empates si GameView necesita saberlo
-        emit("round-finished", { winner: "tie" }); // <-- 'emit' ahora está definido
-      } else if (
-        (playerChoice.value === "piedra" && iaChoice.value === "tijera") ||
-        (playerChoice.value === "papel" && iaChoice.value === "piedra") ||
-        (playerChoice.value === "tijera" && iaChoice.value === "papel")
-      ) {
-        result.value = "Ganaste";
-        emit("round-finished", { winner: "player" }); // <-- 'emit' ahora está definido
-      } else {
-        result.value = "Perdiste";
-        emit("round-finished", { winner: "ia" }); // <-- 'emit' ahora está definido
+    const setGameParameters = (difficulty) => {
+      switch (difficulty) {
+        case "facil":
+          iaPredictionChance = 0; // IA totalmente aleatoria
+          break;
+        case "normal":
+          iaPredictionChance = 0.3; // 30% de probabilidad de "predecir"
+          break;
+        case "dificil":
+          iaPredictionChance = 0.6; // 60% de probabilidad de "predecir"
+          break;
+        default:
+          iaPredictionChance = 0.3; // Por defecto a normal
+          break;
       }
+      resetGame(); // Reinicia el juego con los nuevos parámetros de dificultad
+    };
+
+    const playRound = (choice) => {
+      playerChoice.value = choice;
+      gameMessage.value = `Tú elegiste: ${choice}...`;
+
+      // Lógica de la IA
+      let chosenIaMove;
+      const randomNumber = Math.random(); // Número aleatorio entre 0 y 1
+
+      if (randomNumber < iaPredictionChance) {
+        // La IA intenta predecir y elegir una jugada ganadora
+        // Supone que el jugador elegirá una jugada para perder contra la IA
+        if (playerChoice.value === "piedra") {
+          chosenIaMove = "papel"; // Papel le gana a piedra
+        } else if (playerChoice.value === "papel") {
+          chosenIaMove = "tijera"; // Tijera le gana a papel
+        } else {
+          // playerChoice.value === 'tijera'
+          chosenIaMove = "piedra"; // Piedra le gana a tijera
+        }
+        gameMessage.value += " ¡La IA ha intentado predecir!";
+      } else {
+        // La IA elige aleatoriamente
+        const randomIndex = Math.floor(Math.random() * choices.length);
+        chosenIaMove = choices[randomIndex];
+        gameMessage.value += " La IA elige...";
+      }
+      iaChoice.value = chosenIaMove;
+
+      setTimeout(() => {
+        let roundWinner;
+        if (playerChoice.value === iaChoice.value) {
+          result.value = "¡Empate!";
+          messageType.value = "info";
+          roundWinner = "draw";
+        } else if (
+          (playerChoice.value === "piedra" && iaChoice.value === "tijera") ||
+          (playerChoice.value === "papel" && iaChoice.value === "piedra") ||
+          (playerChoice.value === "tijera" && iaChoice.value === "papel")
+        ) {
+          result.value = "¡Ganaste esta ronda!";
+          messageType.value = "success";
+          roundWinner = "player";
+        } else {
+          result.value = "¡Perdiste esta ronda!";
+          messageType.value = "error";
+          roundWinner = "ia";
+        }
+        emit("round-finished", { winner: roundWinner });
+      }, 1000); // Pequeño retraso para mostrar la elección de la IA
     };
 
     const resetGame = () => {
       playerChoice.value = null;
       iaChoice.value = null;
       result.value = "";
+      gameMessage.value = "Elige tu jugada...";
+      messageType.value = "info";
     };
+
+    onMounted(() => {
+      // Configura los parámetros iniciales de acuerdo a la prop 'difficulty' al montarse
+      setGameParameters(props.difficulty);
+    });
+
+    watch(
+      () => props.difficulty,
+      (newDifficulty) => {
+        setGameParameters(newDifficulty);
+      }
+    );
 
     return {
       playerChoice,
       iaChoice,
       result,
-      makeChoice,
-      resetGame,
+      gameMessage,
+      messageType,
       choices,
+      playRound,
+      resetGame,
     };
   },
-
-  emits: ["round-finished"],
 };
 </script>
 
