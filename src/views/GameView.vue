@@ -63,11 +63,11 @@ export default {
     // Array de mini-juegos disponibles. Usamos 'markRaw' para que Vue no intente
     // hacer reactivo el componente en sí, solo su instancia cuando se monta.
     // Esto es una buena práctica para componentes dinámicos pasados como valores.
-    const availableMiniGames = markRaw([
-      PiedraPapelTijera,
-      AdivinaNumero, // <-- Añade el nuevo componente aquí
-      SimonDice, // <-- Añade el nuevo componente aquí
-    ]);
+    const availableMiniGames = [
+      markRaw(PiedraPapelTijera), // <--- ¡CAMBIO AQUÍ!
+      markRaw(AdivinaNumero), // <--- ¡Y AQUÍ!
+      markRaw(SimonDice), // <--- ¡Y AQUÍ!
+    ];
 
     // El componente actual que se está mostrando en el área del mini-juego.
     // Inicializamos con el primer mini-juego o con una selección aleatoria.
