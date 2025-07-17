@@ -7,6 +7,14 @@
       />
 
       <button
+        v-if="showNextRoundButton"
+        @click="goToNextRound"
+        class="action-button secondary"
+      >
+        Siguiente Ronda
+      </button>
+
+      <button
         v-if="challengeEnded"
         @click="resetChallenge"
         class="action-button primary"
@@ -33,21 +41,21 @@
 
 <script>
 import { ref, markRaw, onMounted } from "vue"; // markRaw es importante para componentes dinámicos
-import { useRoute } from "vue-router"; // <-- ¡NUEVA IMPORTACIÓN!
+import { useRoute } from "vue-router";
 import PiedraPapelTijera from "../components/MiniGames/PiedraPapelTijera.vue";
-import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue"; // <-- Nueva importación
-import SimonDice from "../components/MiniGames/SimonDice.vue"; // <-- Nueva importación
+import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue";
+import SimonDice from "../components/MiniGames/SimonDice.vue";
 
 export default {
   name: "GameView",
   components: {
     PiedraPapelTijera,
-    AdivinaNumero, // <-- Añade el nuevo componente aquí
-    SimonDice, // <-- Añade el nuevo componente aquí
+    AdivinaNumero,
+    SimonDice,
     // Otros mini-juegos se añadirán aquí en el futuro
   },
   setup() {
-    const route = useRoute(); // Instancia de la ruta actual
+    const route = useRoute();
 
     // --- Datos Reactivos del Marcador Global ---
     const playerScore = ref(0);
@@ -56,36 +64,31 @@ export default {
     const totalRounds = ref(3); // Número total de mini-juegos en un desafío
 
     // --- Dificultad Global del Desafío (Ahora obtenida de la URL) ---
-    // 'facil' es el valor por defecto si no se especifica en la URL (aunque siempre debería venir de HomeView)
     const currentDifficulty = ref(route.query.difficulty || "facil");
 
     // --- Gestión de Mini-Juegos ---
-    // Array de mini-juegos disponibles. Usamos 'markRaw' para que Vue no intente
-    // hacer reactivo el componente en sí, solo su instancia cuando se monta.
-    // Esto es una buena práctica para componentes dinámicos pasados como valores.
     const availableMiniGames = [
-      markRaw(PiedraPapelTijera), // <--- ¡CAMBIO AQUÍ!
-      markRaw(AdivinaNumero), // <--- ¡Y AQUÍ!
-      markRaw(SimonDice), // <--- ¡Y AQUÍ!
+      markRaw(PiedraPapelTijera),
+      markRaw(AdivinaNumero),
+      markRaw(SimonDice),
     ];
 
-    // El componente actual que se está mostrando en el área del mini-juego.
-    // Inicializamos con el primer mini-juego o con una selección aleatoria.
     const currentMiniGameComponent = ref(null);
-    const playedMiniGames = ref([]); // Guarda los mini-juegos ya jugados en el desafío actual
+    const playedMiniGames = ref([]);
 
     // Estado del desafío
-    const challengeEnded = ref(false); // true si el desafío ha terminado
+    const challengeEnded = ref(false);
+    const showNextRoundButton = ref(false); // <-- ¡NUEVA REFERENCIA PARA EL BOTÓN!
 
     // --- Lógica de Dificultad y Desbloqueo ---
     const handleChallengeEnd = () => {
       challengeEnded.value = true;
+      showNextRoundButton.value = false; // Asegurarse de que el botón no aparezca al final
       console.log("¡Desafío terminado!");
       console.log(
         `Resultado final: Jugador ${playerScore.value} - IA ${iaScore.value}`
       );
 
-      // Lógica para desbloquear la siguiente dificultad
       if (playerScore.value > iaScore.value) {
         let nextDifficultyToUnlock = null;
         if (currentDifficulty.value === "facil") {
@@ -95,7 +98,6 @@ export default {
         }
 
         if (nextDifficultyToUnlock) {
-          // Emitir un evento global para que HomeView lo escuche
           window.dispatchEvent(
             new CustomEvent("unlockDifficulty", {
               detail: { level: nextDifficultyToUnlock },
@@ -104,7 +106,6 @@ export default {
           console.log(`¡Nivel "${nextDifficultyToUnlock}" desbloqueado!`);
         }
       }
-      // TODO: Lógica para mostrar resultados finales y opción de guardar puntuación
       currentMiniGameComponent.value = null; // O muestra un componente de "Desafío Terminado"
     };
 
@@ -122,10 +123,7 @@ export default {
         } else {
           // Si se jugaron todos los juegos o el número de rondas es menor que los juegos disponibles,
           // reinicia la lista de jugados y selecciona aleatoriamente de todos.
-          // Esto solo ocurriría si totalRounds es menor que availableMiniGames.length
-          // Para nuestro caso actual (3 rondas, 3 juegos), no debería pasar hasta que tengamos más juegos.
-          // Pero es una buena medida de seguridad.
-          playedMiniGames.value = []; // Reinicia para la siguiente "vuelta" de juegos
+          playedMiniGames.value = [];
           const randomIndex = Math.floor(
             Math.random() * availableMiniGames.length
           );
@@ -133,7 +131,7 @@ export default {
           playedMiniGames.value.push(availableMiniGames[randomIndex].name);
         }
       } else {
-        handleChallengeEnd(); // Llama a la nueva función al finalizar el desafío
+        handleChallengeEnd(); // Llama a la función de fin de desafío
       }
     };
 
@@ -143,13 +141,21 @@ export default {
       iaScore.value = 0;
       currentRound.value = 1;
       challengeEnded.value = false;
-      playedMiniGames.value = []; // Reinicia la lista de juegos jugados
-      selectNextMiniGame(); // Selecciona el primer mini-juego
+      showNextRoundButton.value = false; // Asegurar que no se muestre al inicio
+      playedMiniGames.value = [];
+      selectNextMiniGame();
     };
 
     // Lógica para reiniciar el desafío (botón temporal)
     const resetChallenge = () => {
       startChallenge();
+    };
+
+    // --- NUEVA FUNCIÓN PARA PASAR A LA SIGUIENTE RONDA ---
+    const goToNextRound = () => {
+      showNextRoundButton.value = false; // Oculta el botón "Siguiente Ronda"
+      currentRound.value++; // Incrementa la ronda actual
+      selectNextMiniGame(); // Selecciona el próximo mini-juego para la nueva ronda
     };
 
     // --- Manejador de Ronda Terminada ---
@@ -166,10 +172,17 @@ export default {
         console.log("Ronda empatada.");
       }
 
-      currentRound.value++;
-      setTimeout(() => {
-        selectNextMiniGame();
-      }, 1500);
+      // NO incrementamos currentRound aquí, lo haremos en goToNextRound
+      // Y lo más importante: NO llamamos a selectNextMiniGame() directamente
+      // en un setTimeout. En su lugar, mostramos el botón.
+
+      // Muestra el botón para ir a la siguiente ronda, si aún quedan rondas
+      if (currentRound.value < totalRounds.value) {
+        showNextRoundButton.value = true;
+      } else {
+        // Si es la última ronda, manejar el fin del desafío directamente
+        handleChallengeEnd();
+      }
     };
 
     onMounted(() => {
@@ -185,8 +198,10 @@ export default {
       currentMiniGameComponent,
       challengeEnded,
       currentDifficulty,
+      showNextRoundButton, // <-- ¡Importante: exponer la nueva ref!
       handleRoundFinished,
       resetChallenge,
+      goToNextRound, // <-- ¡Importante: exponer la nueva función!
     };
   },
 };
@@ -283,5 +298,14 @@ p {
 
 .action-button.primary:hover {
   background-color: #0056b3;
+}
+
+.action-button.secondary {
+  background-color: #6c757d; /* Un color gris o menos llamativo */
+  color: white;
+}
+
+.action-button.secondary:hover {
+  background-color: #5a6268;
 }
 </style>

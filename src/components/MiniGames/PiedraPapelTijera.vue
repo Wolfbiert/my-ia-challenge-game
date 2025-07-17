@@ -23,8 +23,14 @@
         :class="[
           'player-display',
           {
-            winner: result === 'player' && gameState === 'showingResult',
-            loser: result === 'ia' && gameState === 'showingResult',
+            winner:
+              result === '¡Ganaste esta ronda!' &&
+              gameState === 'showingResult',
+            loser:
+              result === '¡Perdiste esta ronda!' &&
+              gameState === 'showingResult',
+            'round-over-loser':
+              gameState === 'roundOver' && roundLoser === 'player',
           },
         ]"
       >
@@ -35,8 +41,8 @@
         />
         <p>Tú</p>
         <img
-          v-if="showExplosion && result === 'ia'"
-          src="/images/ppt/explosion.gif"
+          v-if="showExplosion && roundLoser === 'player'"
+          :src="`/images/ppt/explosion.gif?t=${explosionTimestamp}`"
           alt="Explosión"
           class="explosion-gif player-explosion"
         />
@@ -59,8 +65,14 @@
         :class="[
           'ia-display',
           {
-            winner: result === 'ia' && gameState === 'showingResult',
-            loser: result === 'player' && gameState === 'showingResult',
+            winner:
+              result === '¡Perdiste esta ronda!' &&
+              gameState === 'showingResult',
+            loser:
+              result === '¡Ganaste esta ronda!' &&
+              gameState === 'showingResult',
+            'round-over-loser':
+              gameState === 'roundOver' && roundLoser === 'ia',
           },
         ]"
       >
@@ -83,8 +95,8 @@
         />
         <p>IA</p>
         <img
-          v-if="showExplosion && result === 'player'"
-          src="/images/ppt/explosion.gif"
+          v-if="showExplosion && roundLoser === 'ia'"
+          :src="`/images/ppt/explosion.gif?t=${explosionTimestamp}`"
           alt="Explosión"
           class="explosion-gif ia-explosion"
         />
@@ -110,11 +122,8 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from "vue";
-
-// Vamos a importar una función para reproducir sonidos
-import { Howl } from "howler"; // Asume que ya tienes Howler.js instalado.
-// Si no, lo instalas: npm install howler
+import { ref, onMounted, watch, nextTick } from "vue";
+import { Howl } from "howler";
 
 export default {
   name: "PiedraPapelTijera",
@@ -131,41 +140,38 @@ export default {
     const iaChoice = ref(null);
     const result = ref("");
     const gameMessage = ref("Elige tu jugada...");
-    const messageType = ref("info"); // info, success, error, warning
-    const choices = ["rock", "paper", "scissors"]; // Asegúrate de que coincida con tus nombres de archivo PNG
+    const messageType = ref("info");
+    const choices = ["rock", "paper", "scissors"];
 
-    // --- NUEVOS ESTADOS PARA LA SECUENCIA ---
-    const gameState = ref("playerChoice"); // 'playerChoice', 'iaThinking', 'iaChosen', 'showingResult', 'roundOver'
-    const iaThinkingDisplayChoice = ref(null); // Para iterar los PNGs mientras la IA "piensa"
-    let iaThinkingInterval = null; // Para el ID del setInterval
-    const iaHasChosen = ref(false); // Para la animación de la elección final de la IA
-    const showExplosion = ref(false); // Para controlar el GIF de explosión
+    const gameState = ref("playerChoice");
+    const iaThinkingDisplayChoice = ref(null);
+    let iaThinkingInterval = null;
+    const iaHasChosen = ref(false);
+    const showExplosion = ref(false);
+    const roundLoser = ref(null);
+    const explosionTimestamp = ref(Date.now());
+
     const explosionSound = new Howl({
-      src: ["/sounds/explosion.mp3"], // Ruta a tu archivo de sonido de explosión
+      src: ["/sounds/explosion.mp3"],
       volume: 0.5,
     });
 
-    // --- Configuración de IA por Dificultad ---
     let iaPredictionChance = 0;
-    let iaThinkingDuration = 0; // Duración total de la fase de pensamiento de la IA
+    let iaThinkingDuration = 0;
 
     const setGameParameters = (difficulty) => {
       switch (difficulty) {
         case "facil":
           iaPredictionChance = 0;
-          iaThinkingDuration = 2500; // Antes 1800ms, ahora 2.5 segundos
+          iaThinkingDuration = 2500;
           break;
         case "normal":
           iaPredictionChance = 0.3;
-          iaThinkingDuration = 3500; // Antes 2500ms, ahora 3.5 segundos
+          iaThinkingDuration = 3500;
           break;
         case "dificil":
           iaPredictionChance = 0.6;
-          iaThinkingDuration = 4000; // Antes 3000ms, ahora 4.0 segundos
-          break;
-        default:
-          iaPredictionChance = 0.3;
-          iaThinkingDuration = 3500;
+          iaThinkingDuration = 4000;
           break;
       }
       resetGame();
@@ -175,10 +181,11 @@ export default {
       playerChoice.value = choice;
       gameMessage.value = `Tú elegiste: ${choice}...`;
       gameState.value = "iaThinking";
-      showExplosion.value = false; // Resetear al inicio de la ronda
-      iaHasChosen.value = false; // Asegurar que esto se resetee también
+      showExplosion.value = false;
+      iaHasChosen.value = false;
+      roundLoser.value = null;
 
-      // 1. Fase de "IA Pensando"
+      // IA piensa
       let currentChoiceIndex = 0;
       iaThinkingInterval = setInterval(() => {
         iaThinkingDisplayChoice.value = choices[currentChoiceIndex];
@@ -187,37 +194,35 @@ export default {
       await new Promise((resolve) => setTimeout(resolve, iaThinkingDuration));
       clearInterval(iaThinkingInterval);
 
-      // Lógica de la IA para elegir
+      // Elección IA
       let chosenIaMove;
       const randomNumber = Math.random();
       if (randomNumber < iaPredictionChance) {
-        if (playerChoice.value === "rock") {
-          chosenIaMove = "paper";
-        } else if (playerChoice.value === "paper") {
-          chosenIaMove = "scissors";
-        } else {
-          chosenIaMove = "rock";
-        }
+        chosenIaMove =
+          choice === "rock"
+            ? "paper"
+            : choice === "paper"
+            ? "scissors"
+            : "rock";
         gameMessage.value = "¡La IA ha tomado su decisión!";
       } else {
-        const randomIndex = Math.floor(Math.random() * choices.length);
-        chosenIaMove = choices[randomIndex];
+        chosenIaMove = choices[Math.floor(Math.random() * choices.length)];
         gameMessage.value = "La IA ha elegido...";
       }
+
       iaChoice.value = chosenIaMove;
       iaThinkingDisplayChoice.value = chosenIaMove;
-
-      // 2. Fase "IA Elegida"
       gameState.value = "iaChosen";
       iaHasChosen.value = true;
       await new Promise((resolve) => setTimeout(resolve, 600));
 
-      // 3. Calcular resultado
+      // Resultado
       let roundWinner;
       if (playerChoice.value === iaChoice.value) {
         result.value = "¡Empate!";
         messageType.value = "info";
         roundWinner = "draw";
+        roundLoser.value = null;
       } else if (
         (playerChoice.value === "rock" && iaChoice.value === "scissors") ||
         (playerChoice.value === "paper" && iaChoice.value === "rock") ||
@@ -226,42 +231,36 @@ export default {
         result.value = "¡Ganaste esta ronda!";
         messageType.value = "success";
         roundWinner = "player";
+        roundLoser.value = "ia";
       } else {
         result.value = "¡Perdiste esta ronda!";
         messageType.value = "error";
         roundWinner = "ia";
+        roundLoser.value = "player";
       }
 
-      // --- VERIFICACIÓN Y ACTIVACIÓN DE LA EXPLOSIÓN ---
-      console.log(
-        `Resultado calculado: ${roundWinner}, Jugador elegido: ${playerChoice.value}, IA elegido: ${iaChoice.value}`
-      ); // DEBUG
-      console.log(`¿Debería haber explosión? ${roundWinner !== "draw"}`); // DEBUG
+      gameState.value = "showingResult";
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (roundWinner !== "draw") {
-        // Establecer el valor de 'result' antes de activar showExplosion
-        // para que la condición del v-if se cumpla (result === 'ia' o result === 'player')
-        // ya que el v-if del GIF usa 'result'
+        explosionTimestamp.value = Date.now(); // reinicio del GIF
+        showExplosion.value = true;
+        await nextTick();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        explosionSound.play();
 
-        showExplosion.value = true; // <-- ¡Esto activa la variable!
-        explosionSound.play(); // Reproducir sonido de explosión
+        // 💥 Poca espera: mostrar explosión y hacer desaparecer al perdedor casi al instante
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        gameState.value = "roundOver"; // activa clase CSS que oculta al perdedor
 
-        console.log(
-          `showExplosion.value justo antes de mostrar gif: ${showExplosion.value}`
-        ); // DEBUG
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        showExplosion.value = false;
+      } else {
+        showExplosion.value = false;
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        gameState.value = "roundOver";
       }
 
-      // Fase de "Mostrando Resultado"
-      // Ahora aplicamos el 'gameState' para que se activen las clases 'winner'/'loser'
-      // Esto debería ocurrir *después* de que showExplosion.value ya sea true.
-      gameState.value = "showingResult";
-
-      // Dale tiempo al GIF y a las animaciones CSS para que se muestren.
-      // 1.5 segundos es un buen tiempo para ver la explosión antes de pasar a la siguiente ronda.
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // 5. Transición al estado de fin de ronda
-      gameState.value = "roundOver";
       emit("round-finished", { winner: roundWinner });
     };
 
@@ -274,7 +273,8 @@ export default {
       gameState.value = "playerChoice";
       iaThinkingDisplayChoice.value = null;
       iaHasChosen.value = false;
-      showExplosion.value = false; // Asegurar que se resetee
+      showExplosion.value = false;
+      roundLoser.value = null;
       if (iaThinkingInterval) {
         clearInterval(iaThinkingInterval);
         iaThinkingInterval = null;
@@ -299,10 +299,12 @@ export default {
       gameMessage,
       messageType,
       choices,
-      gameState, // Exponer el nuevo estado global del juego
-      iaThinkingDisplayChoice, // Exponer para la iteración de la IA
-      iaHasChosen, // Exponer para la animación de la elección de la IA
-      showExplosion, // Exponer para el GIF de explosión
+      gameState,
+      iaThinkingDisplayChoice,
+      iaHasChosen,
+      showExplosion,
+      roundLoser,
+      explosionTimestamp,
       playRound,
       resetGame,
     };
@@ -324,9 +326,9 @@ export default {
   width: 100%;
   max-width: 600px;
   margin: auto;
-  min-height: 450px; /* Un poco más de alto para las animaciones */
+  min-height: 450px;
   position: relative;
-  overflow: hidden; /* Para contener las explosiones si se salen */
+  overflow: hidden;
 }
 
 h2 {
@@ -396,9 +398,9 @@ h2 {
 .versus-section {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 60px; /* Aumentado de 20px a 60px para más espacio */
-  margin-top: 20px;
+  justify-content: space-between;
+  gap: 100px; /* 🔄 ANTES: 60px */
+  margin-top: 40px; /* 🔄 ANTES: 20px */
   width: 100%;
   position: relative;
   min-height: 180px;
@@ -416,6 +418,7 @@ h2 {
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-width: 150px;
+  /* Transición para winner/loser y también para la clase de desaparición */
   transition: transform 0.5s ease-out, opacity 0.5s ease-out,
     box-shadow 0.3s ease;
   position: relative;
@@ -439,7 +442,7 @@ h2 {
 
 /* Para el icono que itera mientras la IA piensa */
 .iterating-icon {
-  animation: popIn 0.2s ease-out; /* Una pequeña animación al cambiar */
+  animation: popIn 0.2s ease-out;
 }
 @keyframes popIn {
   from {
@@ -455,15 +458,27 @@ h2 {
 /* Clases para ganador/perdedor (se activan en gameState 'showingResult') */
 .player-display.loser,
 .ia-display.loser {
-  /*opacity: 1; */
+  /* La escala se aplica solo cuando es perdedor y se muestra el resultado */
   transform: scale(0.5) translateY(20px);
+  opacity: 1; /* Es visible cuando se está mostrando el resultado y es perdedor */
 }
+
 .player-display.winner,
 .ia-display.winner {
   transform: scale(1.1);
   box-shadow: 0 0 20px 5px rgba(46, 204, 113, 0.6);
 }
 
+/* NUEVA REGLA: El perdedor se desvanece y achica cuando la ronda ha terminado */
+/* Esto se activa después de la explosión (gameState cambia a 'roundOver') */
+.player-display.round-over-loser,
+.ia-display.round-over-loser {
+  opacity: 0; /* Lo hace completamente transparente */
+  transform: scale(0); /* Lo achica a cero */
+  /* La transición ya está definida en .player-display, .ia-display */
+}
+
+/* Iconos de elección del VS (dentro de player-display/ia-display) */
 .chosen-icon {
   width: 100px;
   height: 100px;
@@ -479,7 +494,7 @@ h2 {
   font-weight: bold;
   color: #555;
   min-width: 80px;
-  position: absolute; /* Centrado absoluto */
+  position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -488,13 +503,13 @@ h2 {
 }
 
 .vs-text {
-  font-size: 1.5em; /* Ajustado para mejor legibilidad */
+  font-size: 1.5em;
   margin-top: 5px;
 }
 
 .vs-text.big-vs {
   font-size: 3em;
-  animation: fadeIn 0.5s ease-out; /* Animación para el VS cuando aparece */
+  animation: fadeIn 0.5s ease-out;
 }
 @keyframes fadeIn {
   from {
@@ -520,7 +535,7 @@ h2 {
 }
 
 .thinking-gif {
-  width: 80px; /* Ajusta tamaño del GIF de pensando */
+  width: 80px;
   height: 80px;
   border-radius: 50%;
   animation: thinkingPulse 1.5s infinite alternate;
@@ -539,23 +554,30 @@ h2 {
 /* GIF de Explosión */
 .explosion-gif {
   position: absolute;
-  width: 150px;
-  height: 150px;
+  display: block;
+  width: 100%; /* 🔄 ANTES: 150px */
+  height: 100%; /* 🔄 ANTES: 150px */
   object-fit: contain;
   z-index: 3;
-  animation: explode 1.2s forwards; /* Aumentado a 1.2s para más tiempo de visualización */
+  animation: explode 1.2s forwards; /* 🔄 Duración ajustada para que desaparezca más rápido */
+  pointer-events: none; /* 🔒 Asegura que no bloquee clics debajo */
 }
 
 /* Posicionar la explosión sobre el jugador o la IA */
 .player-explosion {
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0; /* 🔄 ANTES: 50% */
+  left: 0; /* 🔄 ANTES: 50% */
+  transform: none; /* 🔄 ANTES: translate(-50%, -50%) */
+  width: 100%;
+  height: 100%;
 }
+
 .ia-explosion {
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
+  transform: none;
+  width: 100%;
+  height: 100%;
 }
 
 @keyframes explode {
@@ -566,15 +588,15 @@ h2 {
   10% {
     opacity: 1;
     transform: scale(0.8);
-  } /* Alcanza tamaño visible rápido */
+  }
   80% {
     opacity: 1;
     transform: scale(1.5);
-  } /* Mantiene la opacidad 1 por más tiempo */
+  }
   100% {
     opacity: 0;
     transform: scale(1.8);
-  } /* Se desvanece al final */
+  }
 }
 
 .result-message {
