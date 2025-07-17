@@ -33,7 +33,11 @@
       </div>
 
       <div class="ia-display">
-        <IASprite :message="aiMessage" :expression="aiExpression" />
+        <IASprite
+          :message="aiMessage"
+          :expression="aiExpression"
+          :isIntervening="isAiIntervening"
+        />
       </div>
     </div>
   </div>
@@ -46,8 +50,8 @@ import PiedraPapelTijera from "../components/MiniGames/PiedraPapelTijera.vue";
 import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue";
 import SimonDice from "../components/MiniGames/SimonDice.vue";
 
-import IASprite from "../components/IASprite.vue"; // Ajusta esta ruta si es necesario
-import useGameOrchestrator from "../composables/useGameOrchestrator"; // Ajusta esta ruta si es necesario
+import IASprite from "../components/IASprite.vue";
+import useGameOrchestrator from "../composables/useGameOrchestrator";
 
 export default {
   name: "GameView",
@@ -60,13 +64,14 @@ export default {
   setup() {
     const route = useRoute();
 
-    // --- Usar el Composable del Orquestador (ahora con aiGameModifiers y decideAndApplyAiModifiers) ---
     const {
       aiMessage,
       aiExpression,
       aiGameModifiers,
+      isAiIntervening,
       setAiMessage,
       decideAndApplyAiModifiers,
+      setGlobalDifficulty,
     } = useGameOrchestrator();
 
     const playerScore = ref(0);
@@ -152,14 +157,20 @@ export default {
         currentMiniGameComponent.value = nextGame;
         playedMiniGames.value.push(nextGame.name);
 
-        // --- NUEVO: La IA decide sus modificadores para el *próximo* juego ---
+        // La IA decide sus modificadores para el *próximo* juego
+        // Esta función ahora llama a interveneAi internamente si se cumplen las condiciones
         decideAndApplyAiModifiers(
           nextGame.name,
           playerScore.value,
           iaScore.value
         );
 
-        setAiMessage(`¡Es hora de ${nextGame.name}! ¡Mucha suerte!`, "happy");
+        // Si la IA no está interviniendo (por ejemplo, si no aplica modificadores),
+        // entonces muestra un mensaje normal de inicio de ronda.
+        // Esto previene que dos mensajes de IA se solapen.
+        if (!isAiIntervening.value) {
+          setAiMessage(`¡Es hora de ${nextGame.name}! ¡Mucha suerte!`, "happy");
+        }
       } else {
         handleChallengeEnd();
       }
@@ -172,12 +183,21 @@ export default {
       challengeEnded.value = false;
       showNextRoundButton.value = false;
       playedMiniGames.value = [];
+
+      // Establecer la dificultad global en el composable
+      setGlobalDifficulty(currentDifficulty.value);
+
       selectNextMiniGame(); // Esto ya llamará a decideAndApplyAiModifiers para el primer juego
-      setAiMessage(
-        `¡Bienvenido al desafío! ¡Demuéstrame de qué eres capaz en dificultad ${currentDifficulty.value}!`,
-        "normal",
-        4000
-      );
+
+      // Mensaje de inicio de desafío. Si la IA interviene en la primera ronda, este mensaje
+      // puede ser sobrescrito o retrasado, lo cual es un comportamiento deseable.
+      if (!isAiIntervening.value) {
+        setAiMessage(
+          `¡Bienvenido al desafío! ¡Demuéstrame de qué eres capaz en dificultad ${currentDifficulty.value}!`,
+          "normal",
+          4000
+        );
+      }
     };
 
     const resetChallenge = () => {
@@ -213,7 +233,10 @@ export default {
         console.log("Ronda empatada.");
       }
 
-      setAiMessage(aiReactionMessage, aiReactionExpression);
+      // Asegúrate de que este mensaje no se muestre si la IA ya está interviniendo
+      if (!isAiIntervening.value) {
+        setAiMessage(aiReactionMessage, aiReactionExpression);
+      }
 
       if (currentRound.value < totalRounds.value) {
         showNextRoundButton.value = true;
@@ -240,7 +263,8 @@ export default {
       goToNextRound,
       aiMessage,
       aiExpression,
-      aiGameModifiers, // <-- Exponer aiGameModifiers para pasar a los minijuegos
+      aiGameModifiers,
+      isAiIntervening, // <-- Exponer isAiIntervening
     };
   },
 };
