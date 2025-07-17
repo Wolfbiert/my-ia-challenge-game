@@ -1,12 +1,16 @@
 <template>
-  <div class="ia-sprite-container">
+  <div class="ia-sprite-container" :class="{ 'is-intervening': isIntervening }">
     <img
       :src="aiSpriteSrc"
       :alt="altText"
       class="ia-sprite"
       :class="aiExpression"
     />
-    <div v-if="message" class="ia-dialog-bubble">
+    <div
+      v-if="message"
+      class="ia-dialog-bubble"
+      :class="{ 'intervening-bubble': isIntervening }"
+    >
       <p>{{ message }}</p>
     </div>
   </div>
@@ -28,15 +32,27 @@ export default {
       validator: (value) =>
         ["normal", "happy", "sad", "angry", "thinking"].includes(value),
     },
-    // Podemos añadir más props para controlar la posición dinámica si es necesario en el futuro
+    // --- NUEVO: Prop para indicar el modo de intervención ---
+    isIntervening: {
+      type: Boolean,
+      default: false,
+    },
   },
   setup(props) {
-    // Aquí puedes definir cómo cambia la imagen del sprite según la expresión
     const aiSpriteSrc = computed(() => {
-      // Por ahora, un solo sprite. Más adelante, puedes mapear expresiones a diferentes imágenes.
-      // Asegúrate de que esta ruta sea correcta para tu sprite SVG o PNG
-      return `/images/ia/coca.svg`;
-      // Ejemplo: return `/images/ia/gaseosa.svg`;
+      // Puedes mapear expresiones a diferentes imágenes aquí
+      switch (props.expression) {
+        case "happy":
+          return "/images/ia/coca_happy.svg"; // Asume que tienes un sprite para feliz
+        case "sad":
+          return "/images/ia/coca_sad.svg"; // Asume que tienes un sprite para triste
+        case "angry":
+          return "/images/ia/coca_angry.svg"; // Asume que tienes un sprite para enojado
+        case "thinking":
+          return "/images/ia/coca_thinking.svg"; // Asume que tienes un sprite para pensando
+        default:
+          return `/images/ia/coca.svg`; // Sprite normal por defecto
+      }
     });
 
     const altText = computed(
@@ -61,7 +77,57 @@ export default {
   align-items: flex-end; /* Alinea los elementos (sprite y burbuja) a la derecha */
   z-index: 100; /* Asegura que esté por encima de otros elementos */
   pointer-events: none; /* Asegura que no bloquee clics en elementos debajo */
+  transition: all 0.5s ease-in-out, transform 0.3s ease-out; /* Transición para movimiento y animaciones */
+  min-width: 150px; /* Asegura que el contenedor tenga un tamaño base */
 }
+
+/* --- NUEVOS ESTILOS PARA MODO INTERVENCIÓN --- */
+.ia-sprite-container.is-intervening {
+  left: 50%; /* Centra horizontalmente */
+  top: 50%; /* Centra verticalmente */
+  transform: translate(-50%, -50%); /* Ajusta para el centro exacto */
+  background-color: rgba(0, 0, 0, 0.7); /* Fondo oscuro semitransparente */
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Resplandor verde */
+  z-index: 1000; /* Muy alto para que esté por encima de todo */
+  pointer-events: auto; /* Permite interacciones si el modo central es interactivo */
+  flex-direction: column; /* Asegura que los elementos sigan siendo columna */
+  align-items: center; /* Centra los elementos dentro del contenedor */
+  justify-content: center; /* Centra verticalmente los elementos */
+  width: auto; /* Ajusta el ancho automáticamente */
+  max-width: 80%; /* No se extienda demasiado */
+}
+
+.ia-sprite-container.is-intervening .ia-sprite {
+  width: 200px; /* Un poco más grande en el centro */
+  height: auto;
+  animation: none; /* Desactiva la animación de flotar cuando interviene */
+  transform: none; /* Resetea cualquier transformación de expresión */
+}
+
+.ia-sprite-container.is-intervening .ia-dialog-bubble {
+  margin: 20px 0 0 0; /* Ajusta márgenes para centrar la burbuja */
+  max-width: 350px; /* Más ancho para el mensaje central */
+  text-align: center;
+  background-color: #e0ffe0; /* Un color de burbuja que destaque más en el modo intervención */
+  color: #105010;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+  border: 2px solid #00aa00;
+}
+
+/* Ajuste de la cola de la burbuja para el modo intervención (apunta hacia arriba) */
+.ia-dialog-bubble.intervening-bubble::after {
+  left: 50%; /* Centra la cola */
+  bottom: unset; /* Desactiva el bottom original */
+  top: -10px; /* Posiciona la cola en la parte superior de la burbuja */
+  border-top: none;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #e0ffe0; /* Color de la cola igual al nuevo fondo de la burbuja */
+  transform: translateX(-50%); /* Ajusta la posición de la cola */
+}
+/* Fin de estilos de intervención */
 
 .ia-sprite {
   width: 150px; /* Ajusta el tamaño de tu sprite */
