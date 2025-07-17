@@ -35,7 +35,7 @@ export default {
     const aiSpriteSrc = computed(() => {
       // Por ahora, un solo sprite. Más adelante, puedes mapear expresiones a diferentes imágenes.
       // Asegúrate de que esta ruta sea correcta para tu sprite SVG o PNG
-      return `/public/images/ia/coca.svg`;
+      return `/images/ia/coca.svg`;
       // Ejemplo: return `/images/ia/gaseosa.svg`;
     });
 

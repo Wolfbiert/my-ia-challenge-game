@@ -46,8 +46,8 @@ import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue";
 import SimonDice from "../components/MiniGames/SimonDice.vue";
 
 // --- Importar componentes de la IA ---
-import IASprite from "@/UI/IASprite.vue";
-import useGameOrchestrator from "@/composables/useGameOrchestrator";
+import IASprite from "../components/IASprite.vue"; // Subir un nivel (src) y luego bajar a UI
+import useGameOrchestrator from "../composables/useGameOrchestrator"; // Subir un nivel (src) y luego bajar a composables
 
 export default {
   name: "GameView",
