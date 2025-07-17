@@ -1,7 +1,22 @@
 <template>
   <div class="guess-number-game-container">
-    <h2>Adivina el Número</h2>
-    <p class="game-message" :class="messageType">{{ message }}</p>
+    <h2>Adivina el Número 🔢</h2>
+
+    <p class="game-message" :class="messageType">
+      <span v-html="message" />
+      <span
+        v-if="
+          gameState === 'playing' && playerGuess !== null && playerGuess !== ''
+        "
+      >
+        (Estás buscando entre {{ minRangeHint }} y {{ maxRangeHint }})
+      </span>
+    </p>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar" :style="{ width: progressWidth + '%' }"></div>
+    </div>
+
     <p class="attempts-info">Intentos: {{ attempts }} / {{ maxAttempts }}</p>
 
     <div class="input-section">
@@ -10,16 +25,28 @@
         v-model.number="playerGuess"
         :placeholder="`Ingresa un número entre ${minRange} y ${maxRange}`"
         @keyup.enter="checkGuess"
+        :disabled="gameState === 'gameOver'"
       />
-      <button @click="checkGuess">Adivinar</button>
+      <button @click="checkGuess" :disabled="gameState === 'gameOver'">
+        Adivinar
+      </button>
     </div>
 
-    <button @click="resetGame" class="reset-button">Reiniciar</button>
+    <button @click="resetGame" class="reset-button">🔄 Reiniciar</button>
+
+    <div v-if="guessHistory.length > 0" class="guess-history">
+      <h3>📜 Historial de Intentos:</h3>
+      <ul>
+        <li v-for="(item, index) in guessHistory" :key="index">
+          <strong>{{ item.guess }}</strong> – {{ item.hint }}
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, computed } from "vue";
 
 export default {
   name: "AdivinaNumero",
@@ -35,13 +62,28 @@ export default {
     const randomNumber = ref(0);
     const playerGuess = ref(null);
     const message = ref("");
-    const messageType = ref("info"); // info, success, error, warning
+    const messageType = ref("info");
     const attempts = ref(0);
-    let maxAttempts = 0; // Dependerá de la dificultad
-    let minRange = 0; // Rango mínimo
-    let maxRange = 0; // Rango máximo
+    const guessHistory = ref([]);
+    const gameState = ref("playing");
 
-    // Función para configurar los parámetros del juego según la dificultad
+    const minRangeHint = ref(0);
+    const maxRangeHint = ref(0);
+
+    let maxAttempts = 0;
+    let minRange = 0;
+    let maxRange = 0;
+
+    const motivationalPhrases = [
+      "¡No te rindas! 💪",
+      "¡Sigue intentando! 🔁",
+      "¡Tú puedes! ⭐",
+      "¡Confía en tu instinto! 👁️",
+      "¡El próximo será el correcto! 🎯",
+    ];
+
+    const progressWidth = computed(() => (attempts.value / maxAttempts) * 100);
+
     const setGameParameters = (difficulty) => {
       switch (difficulty) {
         case "facil":
@@ -57,15 +99,15 @@ export default {
         case "dificil":
           minRange = 1;
           maxRange = 30;
-          maxAttempts = 8; // Más intentos pero rango más grande
+          maxAttempts = 8;
           break;
-        default: // Por defecto a normal
+        default:
           minRange = 1;
           maxRange = 20;
           maxAttempts = 7;
           break;
       }
-      initializeGame(); // Reinicia el juego con los nuevos parámetros
+      initializeGame();
     };
 
     const generateRandomNumber = () => {
@@ -79,45 +121,101 @@ export default {
       message.value = `Adivina un número entre ${minRange} y ${maxRange}. Tienes ${maxAttempts} intentos.`;
       messageType.value = "info";
       attempts.value = 0;
+      guessHistory.value = [];
+      gameState.value = "playing";
+      minRangeHint.value = minRange;
+      maxRangeHint.value = maxRange;
+    };
+
+    const getHotColdHint = (difference, currentMaxRange) => {
+      const rangeSize = currentMaxRange - minRange;
+      if (difference === 0) return "";
+      if (difference <= Math.ceil(rangeSize * 0.05)) return "¡Estás quemando!";
+      if (difference <= Math.ceil(rangeSize * 0.15)) return "Caliente.";
+      if (difference <= Math.ceil(rangeSize * 0.3)) return "Templado.";
+      return "Frío.";
     };
 
     const checkGuess = () => {
-      if (playerGuess.value === null || playerGuess.value === "") {
-        message.value = "Por favor, ingresa un número.";
+      if (gameState.value === "gameOver") return;
+
+      const guess = parseInt(playerGuess.value);
+
+      if (
+        isNaN(guess) ||
+        playerGuess.value === null ||
+        playerGuess.value === ""
+      ) {
+        message.value = "Por favor, ingresa un número válido.";
+        messageType.value = "warning";
+        return;
+      }
+
+      if (guess < minRange || guess > maxRange) {
+        message.value = `El número debe estar entre ${minRange} y ${maxRange}.`;
         messageType.value = "warning";
         return;
       }
 
       attempts.value++;
+      let hintText = "";
 
-      if (parseInt(playerGuess.value) === randomNumber.value) {
+      if (guess === randomNumber.value) {
         message.value = `¡Felicidades! Adivinaste el número ${randomNumber.value} en ${attempts.value} intentos.`;
         messageType.value = "success";
+        gameState.value = "gameOver";
         emit("round-finished", { winner: "player" });
+        hintText = "¡Correcto!";
       } else if (attempts.value >= maxAttempts) {
         message.value = `¡Se acabaron los intentos! El número era ${randomNumber.value}. Perdiste esta ronda.`;
         messageType.value = "error";
+        gameState.value = "gameOver";
         emit("round-finished", { winner: "ia" });
-      } else if (parseInt(playerGuess.value) < randomNumber.value) {
-        message.value = `El número es mayor. Te quedan ${
-          maxAttempts - attempts.value
-        } intentos.`;
-        messageType.value = "info";
+        hintText = "¡Fallaste! Se acabaron los intentos.";
       } else {
-        message.value = `El número es menor. Te quedan ${
-          maxAttempts - attempts.value
-        } intentos.`;
+        const difference = Math.abs(guess - randomNumber.value);
+        const hotColdHint = getHotColdHint(difference, maxRange);
+        const phrase =
+          motivationalPhrases[
+            Math.floor(Math.random() * motivationalPhrases.length)
+          ];
+
+        if (guess < randomNumber.value) {
+          hintText = `Mayor. ${hotColdHint}`;
+          message.value = `El número es mayor. ${hotColdHint}<br>${phrase} Te quedan ${
+            maxAttempts - attempts.value
+          } intentos.`;
+          if (guess >= minRangeHint.value) {
+            minRangeHint.value = guess + 1;
+          }
+        } else {
+          hintText = `Menor. ${hotColdHint}`;
+          message.value = `El número es menor. ${hotColdHint}<br>${phrase} Te quedan ${
+            maxAttempts - attempts.value
+          } intentos.`;
+          if (guess <= maxRangeHint.value) {
+            maxRangeHint.value = guess - 1;
+          }
+        }
         messageType.value = "info";
       }
-      playerGuess.value = null; // Limpiar el input
+
+      if (
+        !isNaN(guess) &&
+        playerGuess.value !== null &&
+        playerGuess.value !== ""
+      ) {
+        guessHistory.value.push({ guess: guess, hint: hintText });
+      }
+
+      playerGuess.value = null;
     };
 
     const resetGame = () => {
-      initializeGame();
+      setGameParameters(props.difficulty);
     };
 
     onMounted(() => {
-      // Configura los parámetros iniciales de acuerdo a la prop 'difficulty' al montarse
       setGameParameters(props.difficulty);
     });
 
@@ -133,137 +231,112 @@ export default {
       message,
       messageType,
       attempts,
-      maxAttempts, // Retornar maxAttempts para mostrarlo en el template si quieres
-      minRange, // Retornar para mostrar en el template
-      maxRange, // Retornar para mostrar en el template
+      maxAttempts,
+      minRange,
+      maxRange,
+      guessHistory,
+      gameState,
+      minRangeHint,
+      maxRangeHint,
       checkGuess,
       resetGame,
+      progressWidth,
     };
   },
 };
 </script>
 
 <style scoped>
-.adivina-numero-game-container {
-  background-color: #f7fef7; /* Fondo más claro para este juego */
-  padding: 35px;
-  border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-  text-align: center;
-  max-width: 550px;
+.guess-number-game-container {
+  max-width: 400px;
   margin: auto;
-  color: #333;
+  padding: 20px;
+  border-radius: 10px;
+  background-color: #f5f5f5;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-family: "Segoe UI", sans-serif;
 }
 
 h2 {
-  color: #28a745; /* Verde vibrante */
-  margin-bottom: 20px;
-  font-size: 2.2em;
-}
-
-.attempts-info {
-  font-size: 1.1em;
-  color: #666;
-  margin-bottom: 15px;
+  text-align: center;
 }
 
 .game-message {
-  font-size: 1.4em;
   font-weight: bold;
-  margin: 25px 0;
-  padding: 10px;
-  border-radius: 5px;
-  background-color: #e0f7fa; /* Default info color */
-}
-
-.game-message.info {
-  color: #007bff; /* Azul para info */
-  background-color: #e0f7fa;
+  margin-bottom: 10px;
 }
 
 .game-message.success {
-  color: #28a745; /* Verde para éxito */
-  background-color: #d4edda;
+  color: green;
 }
 
 .game-message.error {
-  color: #dc3545; /* Rojo para error */
-  background-color: #f8d7da;
+  color: red;
 }
 
 .game-message.warning {
-  color: #ffc107; /* Amarillo para advertencia */
-  background-color: #fff3cd;
+  color: orange;
 }
 
-.guess-input-section {
+.input-section {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-  margin-top: 30px;
+  gap: 10px;
+  margin-bottom: 15px;
 }
 
-.guess-input {
-  padding: 12px 15px;
-  font-size: 1.2em;
-  border: 2px solid #ccc;
-  border-radius: 8px;
-  width: 120px;
-  text-align: center;
-  outline: none;
-  transition: border-color 0.3s ease;
+input[type="number"] {
+  flex: 1;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
 }
 
-.guess-input:focus {
-  border-color: #28a745;
-}
-
-.guess-button {
-  padding: 12px 25px;
-  font-size: 1.2em;
-  background-color: #28a745; /* Verde vibrante */
-  color: white;
+button {
+  padding: 6px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
+  background-color: #007bff;
+  color: white;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.1s ease;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
-.guess-button:hover:not(:disabled) {
-  background-color: #218838;
-  transform: translateY(-2px);
-}
-
-.guess-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.guess-button:disabled {
-  background-color: #cccccc;
+button:disabled {
+  background-color: #999;
   cursor: not-allowed;
 }
 
-.game-over-section {
-  margin-top: 30px;
-  font-size: 1.2em;
-}
-
 .reset-button {
-  padding: 10px 20px;
-  font-size: 1em;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-top: 20px;
-  transition: background-color 0.3s ease;
+  margin-bottom: 15px;
+  background-color: #28a745;
 }
 
-.reset-button:hover {
-  background-color: #0056b3;
+.guess-history {
+  margin-top: 20px;
+}
+
+.guess-history ul {
+  padding-left: 20px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 12px;
+  background-color: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #28a745;
+  transition: width 0.3s ease;
+}
+
+.attempts-info {
+  font-size: 14px;
+  margin-bottom: 8px;
+  text-align: center;
 }
 </style>
