@@ -3,7 +3,8 @@
     <div class="minigame-area">
       <component
         :is="currentMiniGameComponent"
-        :difficulty="currentDifficulty" @round-finished="handleRoundFinished"
+        :difficulty="currentDifficulty"
+        @round-finished="handleRoundFinished"
       />
 
       <button
@@ -45,8 +46,8 @@ import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue";
 import SimonDice from "../components/MiniGames/SimonDice.vue";
 
 // --- Importar componentes de la IA ---
-import IASprite from '@/UI/IASprite.vue';
-import useGameOrchestrator from '@/composables/useGameOrchestrator';
+import IASprite from "@/UI/IASprite.vue";
+import useGameOrchestrator from "@/composables/useGameOrchestrator";
 
 export default {
   name: "GameView",
@@ -60,7 +61,8 @@ export default {
     const route = useRoute();
 
     // --- Usar el Composable del Orquestador ---
-    const { aiMessage, aiExpression, setAiMessage, setMinigame } = useGameOrchestrator();
+    // Se elimina 'setMinigame' de aquí porque no se usa directamente en este archivo.
+    const { aiMessage, aiExpression, setAiMessage } = useGameOrchestrator();
 
     // --- Datos Reactivos del Marcador Global ---
     const playerScore = ref(0);
@@ -95,17 +97,18 @@ export default {
       );
 
       // --- Mensaje final de la IA ---
-      let finalAiMessage = '';
-      let finalAiExpression = 'normal';
+      let finalAiMessage = "";
+      let finalAiExpression = "normal";
       if (playerScore.value > iaScore.value) {
-        finalAiMessage = '¡Me has superado esta vez! ¡Bien jugado, humano!';
-        finalAiExpression = 'sad';
+        finalAiMessage = "¡Me has superado esta vez! ¡Bien jugado, humano!";
+        finalAiExpression = "sad";
       } else if (iaScore.value > playerScore.value) {
-        finalAiMessage = '¡Jajaja! ¡Soy invencible! El desafío es mío.';
-        finalAiExpression = 'happy';
+        finalAiMessage = "¡Jajaja! ¡Soy invencible! El desafío es mío.";
+        finalAiExpression = "happy";
       } else {
-        finalAiMessage = 'Un empate... ¡Qué emocionante! ¡La próxima vez no tendré piedad!';
-        finalAiExpression = 'thinking';
+        finalAiMessage =
+          "Un empate... ¡Qué emocionante! ¡La próxima vez no tendré piedad!";
+        finalAiExpression = "thinking";
       }
       setAiMessage(finalAiMessage, finalAiExpression, 5000); // Mensaje más largo al final
 
@@ -151,7 +154,10 @@ export default {
           playedMiniGames.value.push(availableMiniGames[randomIndex].name);
         }
         // Mensaje de la IA al iniciar nueva ronda/minijuego
-        setAiMessage(`¡Es hora de ${currentMiniGameComponent.value.name}! ¡Mucha suerte!`, 'happy');
+        setAiMessage(
+          `¡Es hora de ${currentMiniGameComponent.value.name}! ¡Mucha suerte!`,
+          "happy"
+        );
       } else {
         handleChallengeEnd(); // Llama a la función de fin de desafío
       }
@@ -167,10 +173,14 @@ export default {
       playedMiniGames.value = [];
       selectNextMiniGame();
       // Mensaje de la IA al iniciar el desafío
-      setAiMessage(`¡Bienvenido al desafío! ¡Demuéstrame de qué eres capaz en dificultad ${currentDifficulty.value}!`, 'normal', 4000);
+      setAiMessage(
+        `¡Bienvenido al desafío! ¡Demuéstrame de qué eres capaz en dificultad ${currentDifficulty.value}!`,
+        "normal",
+        4000
+      );
     };
 
-    // Lógica para reiniciar el desafío
+    // Lógica para reiniciar el desafío (botón temporal)
     const resetChallenge = () => {
       startChallenge();
     };
@@ -186,22 +196,23 @@ export default {
     const handleRoundFinished = (payload) => {
       console.log("Ronda terminada:", payload);
 
-      let aiReactionMessage = '';
-      let aiReactionExpression = 'normal';
+      let aiReactionMessage = "";
+      let aiReactionExpression = "normal";
 
       if (payload.winner === "player") {
         playerScore.value++;
-        aiReactionMessage = '¡Rayos! Ganaste esta ronda. No te confíes.';
-        aiReactionExpression = 'sad';
+        aiReactionMessage = "¡Rayos! Ganaste esta ronda. No te confíes.";
+        aiReactionExpression = "sad";
         console.log("¡Ganó el jugador! Puntuación:", playerScore.value);
       } else if (payload.winner === "ia") {
         iaScore.value++;
-        aiReactionMessage = '¡Ja! ¡Sabía que ganaría! El futuro es mío.';
-        aiReactionExpression = 'happy';
+        aiReactionMessage = "¡Ja! ¡Sabía que ganaría! El futuro es mío.";
+        aiReactionExpression = "happy";
         console.log("¡Ganó la IA! Puntuación:", iaScore.value);
       } else {
-        aiReactionMessage = '¡Un empate! Interesante... La próxima será decisiva.';
-        aiReactionExpression = 'thinking';
+        aiReactionMessage =
+          "¡Un empate! Interesante... La próxima será decisiva.";
+        aiReactionExpression = "thinking";
         console.log("Ronda empatada.");
       }
 
@@ -305,4 +316,40 @@ export default {
   overflow: hidden; /* En caso de que el sprite se salga un poco */
 }
 
-/* El ia-placeholder ya no es necesario, ya que IASprite lo reemplaza */
+h2,
+h3 {
+  color: #333;
+  margin-bottom: 10px;
+}
+p {
+  color: #555;
+}
+
+.action-button {
+  padding: 12px 25px;
+  font-size: 1.1em;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 20px;
+}
+
+.action-button.primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.action-button.primary:hover {
+  background-color: #0056b3;
+}
+
+.action-button.secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.action-button.secondary:hover {
+  background-color: #5a6268;
+}
+</style>
