@@ -4,6 +4,7 @@
       <component
         :is="currentMiniGameComponent"
         :difficulty="currentDifficulty"
+        :aiModifiers="aiGameModifiers"
         @round-finished="handleRoundFinished"
       />
 
@@ -45,9 +46,8 @@ import PiedraPapelTijera from "../components/MiniGames/PiedraPapelTijera.vue";
 import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue";
 import SimonDice from "../components/MiniGames/SimonDice.vue";
 
-// --- Importar componentes de la IA ---
-import IASprite from "../components/IASprite.vue"; // Subir un nivel (src) y luego bajar a UI
-import useGameOrchestrator from "../composables/useGameOrchestrator"; // Subir un nivel (src) y luego bajar a composables
+import IASprite from "../components/IASprite.vue"; // Ajusta esta ruta si es necesario
+import useGameOrchestrator from "../composables/useGameOrchestrator"; // Ajusta esta ruta si es necesario
 
 export default {
   name: "GameView",
@@ -55,25 +55,27 @@ export default {
     PiedraPapelTijera,
     AdivinaNumero,
     SimonDice,
-    IASprite, // Registrar el componente IASprite
+    IASprite,
   },
   setup() {
     const route = useRoute();
 
-    // --- Usar el Composable del Orquestador ---
-    // Se elimina 'setMinigame' de aquí porque no se usa directamente en este archivo.
-    const { aiMessage, aiExpression, setAiMessage } = useGameOrchestrator();
+    // --- Usar el Composable del Orquestador (ahora con aiGameModifiers y decideAndApplyAiModifiers) ---
+    const {
+      aiMessage,
+      aiExpression,
+      aiGameModifiers,
+      setAiMessage,
+      decideAndApplyAiModifiers,
+    } = useGameOrchestrator();
 
-    // --- Datos Reactivos del Marcador Global ---
     const playerScore = ref(0);
     const iaScore = ref(0);
-    const currentRound = ref(1); // Ronda actual del desafío
-    const totalRounds = ref(3); // Número total de mini-juegos en un desafío
+    const currentRound = ref(1);
+    const totalRounds = ref(3);
 
-    // --- Dificultad Global del Desafío (Ahora obtenida de la URL) ---
-    const currentDifficulty = ref(route.query.difficulty || "facil");
+    const currentDifficulty = ref(route.query.difficulty || "normal");
 
-    // --- Gestión de Mini-Juegos ---
     const availableMiniGames = [
       markRaw(PiedraPapelTijera),
       markRaw(AdivinaNumero),
@@ -83,11 +85,9 @@ export default {
     const currentMiniGameComponent = ref(null);
     const playedMiniGames = ref([]);
 
-    // Estado del desafío
     const challengeEnded = ref(false);
     const showNextRoundButton = ref(false);
 
-    // --- Lógica de Dificultad y Desbloqueo ---
     const handleChallengeEnd = () => {
       challengeEnded.value = true;
       showNextRoundButton.value = false;
@@ -96,7 +96,6 @@ export default {
         `Resultado final: Jugador ${playerScore.value} - IA ${iaScore.value}`
       );
 
-      // --- Mensaje final de la IA ---
       let finalAiMessage = "";
       let finalAiExpression = "normal";
       if (playerScore.value > iaScore.value) {
@@ -110,7 +109,7 @@ export default {
           "Un empate... ¡Qué emocionante! ¡La próxima vez no tendré piedad!";
         finalAiExpression = "thinking";
       }
-      setAiMessage(finalAiMessage, finalAiExpression, 5000); // Mensaje más largo al final
+      setAiMessage(finalAiMessage, finalAiExpression, 5000);
 
       if (playerScore.value > iaScore.value) {
         let nextDifficultyToUnlock = null;
@@ -129,41 +128,43 @@ export default {
           console.log(`¡Nivel "${nextDifficultyToUnlock}" desbloqueado!`);
         }
       }
-      currentMiniGameComponent.value = null; // O muestra un componente de "Desafío Terminado"
+      currentMiniGameComponent.value = null;
     };
 
-    // --- Lógica de Inicio y Selección de Mini-Juegos ---
     const selectNextMiniGame = () => {
       if (currentRound.value <= totalRounds.value) {
         const unplayedGames = availableMiniGames.filter(
           (game) => !playedMiniGames.value.includes(game.name)
         );
 
+        let nextGame;
         if (unplayedGames.length > 0) {
           const randomIndex = Math.floor(Math.random() * unplayedGames.length);
-          currentMiniGameComponent.value = unplayedGames[randomIndex];
-          playedMiniGames.value.push(unplayedGames[randomIndex].name);
+          nextGame = unplayedGames[randomIndex];
         } else {
-          // Si se jugaron todos los juegos o el número de rondas es menor que los juegos disponibles,
-          // reinicia la lista de jugados y selecciona aleatoriamente de todos.
           playedMiniGames.value = [];
           const randomIndex = Math.floor(
             Math.random() * availableMiniGames.length
           );
-          currentMiniGameComponent.value = availableMiniGames[randomIndex];
-          playedMiniGames.value.push(availableMiniGames[randomIndex].name);
+          nextGame = availableMiniGames[randomIndex];
         }
-        // Mensaje de la IA al iniciar nueva ronda/minijuego
-        setAiMessage(
-          `¡Es hora de ${currentMiniGameComponent.value.name}! ¡Mucha suerte!`,
-          "happy"
+
+        currentMiniGameComponent.value = nextGame;
+        playedMiniGames.value.push(nextGame.name);
+
+        // --- NUEVO: La IA decide sus modificadores para el *próximo* juego ---
+        decideAndApplyAiModifiers(
+          nextGame.name,
+          playerScore.value,
+          iaScore.value
         );
+
+        setAiMessage(`¡Es hora de ${nextGame.name}! ¡Mucha suerte!`, "happy");
       } else {
-        handleChallengeEnd(); // Llama a la función de fin de desafío
+        handleChallengeEnd();
       }
     };
 
-    // Función para inicializar el desafío
     const startChallenge = () => {
       playerScore.value = 0;
       iaScore.value = 0;
@@ -171,8 +172,7 @@ export default {
       challengeEnded.value = false;
       showNextRoundButton.value = false;
       playedMiniGames.value = [];
-      selectNextMiniGame();
-      // Mensaje de la IA al iniciar el desafío
+      selectNextMiniGame(); // Esto ya llamará a decideAndApplyAiModifiers para el primer juego
       setAiMessage(
         `¡Bienvenido al desafío! ¡Demuéstrame de qué eres capaz en dificultad ${currentDifficulty.value}!`,
         "normal",
@@ -180,19 +180,16 @@ export default {
       );
     };
 
-    // Lógica para reiniciar el desafío (botón temporal)
     const resetChallenge = () => {
       startChallenge();
     };
 
-    // --- FUNCIÓN PARA PASAR A LA SIGUIENTE RONDA ---
     const goToNextRound = () => {
       showNextRoundButton.value = false;
       currentRound.value++;
       selectNextMiniGame();
     };
 
-    // --- Manejador de Ronda Terminada ---
     const handleRoundFinished = (payload) => {
       console.log("Ronda terminada:", payload);
 
@@ -216,13 +213,11 @@ export default {
         console.log("Ronda empatada.");
       }
 
-      setAiMessage(aiReactionMessage, aiReactionExpression); // La IA reacciona
+      setAiMessage(aiReactionMessage, aiReactionExpression);
 
-      // Muestra el botón para ir a la siguiente ronda, si aún quedan rondas
       if (currentRound.value < totalRounds.value) {
         showNextRoundButton.value = true;
       } else {
-        // Si es la última ronda, manejar el fin del desafío directamente
         handleChallengeEnd();
       }
     };
@@ -243,9 +238,9 @@ export default {
       handleRoundFinished,
       resetChallenge,
       goToNextRound,
-      // Exponer las propiedades de la IA del composable para el template
       aiMessage,
       aiExpression,
+      aiGameModifiers, // <-- Exponer aiGameModifiers para pasar a los minijuegos
     };
   },
 };
@@ -260,7 +255,7 @@ export default {
   gap: 20px;
   height: calc(100vh - 40px);
   box-sizing: border-box;
-  position: relative; /* Importante para que IASprite.vue pueda posicionarse absolutamente */
+  position: relative;
 }
 
 .minigame-area {
@@ -276,7 +271,7 @@ export default {
   text-align: center;
   min-height: 400px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  position: relative; /* Si necesitas posicionar algo absoluto dentro del área del minijuego */
+  position: relative;
 }
 
 .ia-sidebar {
@@ -286,9 +281,8 @@ export default {
   gap: 20px;
   max-width: 300px;
   min-width: 250px;
-  /* Posicionamiento para que el IASprite se alinee dentro */
-  position: relative; /* Hace que el IASprite se posicione relativamente a este sidebar */
-  height: 100%; /* Ocupa la altura completa del contenedor para mejor posicionamiento vertical de la IA */
+  position: relative;
+  height: 100%;
 }
 
 .scoreboard {
@@ -310,10 +304,10 @@ export default {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end; /* Alinea el contenido (IA Sprite) hacia abajo */
+  justify-content: flex-end;
   align-items: center;
-  position: relative; /* IMPORTANTE para que IASprite se posicione dentro de este div */
-  overflow: hidden; /* En caso de que el sprite se salga un poco */
+  position: relative;
+  overflow: hidden;
 }
 
 h2,
