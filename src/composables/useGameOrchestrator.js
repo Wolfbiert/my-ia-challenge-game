@@ -55,7 +55,7 @@ const setGlobalDifficulty = (difficulty) => {
   );
 };
 
-// --- NUEVO: Definición de probabilidades de modificadores por dificultad ---
+// --- Definición de probabilidades de modificadores por dificultad ---
 const modifierProbabilities = {
   // Probabilidades para Adivina el Número
   AdivinaNumero: {
@@ -66,8 +66,7 @@ const modifierProbabilities = {
         message: "Veo que te cuesta un poco... ¡Te daré una ayudita esta vez!",
         expression: "happy",
         intervene: false,
-      }, // Dar +1 intento
-      // Otros modificadores para fácil si es necesario
+      },
     },
     normal: {
       maxAttempts: {
@@ -76,7 +75,7 @@ const modifierProbabilities = {
         message: "¡No te voy a dejar ganar tan fácil! Un pequeño ajuste...",
         expression: "angry",
         intervene: true,
-      }, // Quitar -1 intento
+      },
       narrowRange: {
         chance: 0.2,
         value: true,
@@ -84,7 +83,7 @@ const modifierProbabilities = {
           "Esto está muy reñido... ¡Veremos si puedes con un desafío extra!",
         expression: "thinking",
         intervene: true,
-      }, // Estrechar rango
+      },
     },
     dificil: {
       maxAttempts: {
@@ -116,31 +115,55 @@ const modifierProbabilities = {
         expression: "angry",
         intervene: true,
       },
-      // Podríamos añadir probabilidades más bajas para que la IA se jacte si va ganando mucho, etc.
-      // Ejemplo: aiBoast: { chance: 0.1, message: '¡Qué fácil me lo pones! ¡Jajaja!', expression: 'happy', intervene: false }
     },
   },
-  // --- NUEVO: Probabilidades para Piedra, Papel o Tijera (ejemplo futuro) ---
+  // --- Probabilidades para Piedra, Papel o Tijera (ejemplo futuro) ---
   PiedraPapelTijera: {
-    facil: {
-      // No hay modificadores en fácil, o quizás uno para IA sea menos agresiva
-    },
-    normal: {
-      // Ejemplo: biasedChoice: { chance: 0.2, value: 'paper', message: 'Mmm... siento predilección por el papel hoy.', expression: 'thinking', intervene: false }
-    },
-    dificil: {
-      // Ejemplo: anticipatePlayer: { chance: 0.1, message: 'Puedo ver tus pensamientos... ¡No te servirá de nada!', expression: 'angry', intervene: true }
-    },
-  },
-  // --- NUEVO: Probabilidades para Simon Dice (ejemplo futuro) ---
-  SimonDice: {
     facil: {},
+    normal: {},
+    dificil: {},
+  },
+  // --- NUEVO: Probabilidades para Simon Dice ---
+  SimonDice: {
+    facil: {
+      // Podríamos poner un modificador de ayuda si queremos, ej. secuencia ligeramente más corta
+      // sequenceDifficulty: { chance: 0.2, value: { length: 0.8, speed: 1.0 }, message: '¡No te estreses! Un poco más fácil para ti.', expression: 'happy', intervene: false }
+    },
     normal: {
-      // Example: fasterSequence: { chance: 0.2, value: 0.8, message: '¡Sube la velocidad! ¿Puedes seguirme?', expression: 'happy', intervene: false }
+      sequenceDifficulty: {
+        chance: 0.3,
+        value: { length: 1.2, speed: 0.8 }, // 20% más larga, 20% más rápida
+        message: "¡Sube la velocidad! ¿Puedes seguirme?",
+        expression: "thinking",
+        intervene: true,
+      },
     },
     dificil: {
-      // Example: shorterReactionTime: { chance: 0.15, value: 0.5, message: '¡El tiempo se agota! Rápido, rápido...', expression: 'angry', intervene: true },
-      // Example: longerSequence: { chance: 0.2, value: 1, message: '¡Mi memoria es infinita! ¿La tuya?', expression: 'thinking', intervene: true }
+      sequenceDifficulty: {
+        chance: 0.4,
+        value: { length: 1.5, speed: 0.6 }, // 50% más larga, 40% más rápida
+        message:
+          "¡Mis secuencias son un desafío para los más audaces! ¡Demuéstrame tu memoria!",
+        expression: "angry",
+        intervene: true,
+      },
+      nonRepeatingSequence: {
+        chance: 0.2, // 20% de probabilidad
+        value: true,
+        message:
+          "¡El patrón... ha desaparecido! ¡Cada ronda es un nuevo enigma!",
+        expression: "thinking",
+        intervene: true,
+      },
+      // Posibilidad de secuencia EXTREMADAMENTE difícil
+      extremeSequence: {
+        chance: 0.05, // 5% de probabilidad de ser casi imposible
+        value: { length: 2.5, speed: 0.3 }, // 150% más larga (2.5x), 70% más rápida (0.3x)
+        message:
+          "¡Estás a punto de experimentar mis límites! ¡Intenta no colapsar!",
+        expression: "angry",
+        intervene: true,
+      },
     },
   },
 };
@@ -157,13 +180,40 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
     modifierProbabilities[gameName]?.[globalDifficulty.value];
 
   if (currentDifficultyProbabilities) {
-    for (const modifierName in currentDifficultyProbabilities) {
-      const config = currentDifficultyProbabilities[modifierName];
+    // Priorizamos los modificadores más drásticos en 'dificil' para que tengan su propia chance
+    const orderedModifiers = [];
+    if (gameName === "SimonDice" && globalDifficulty.value === "dificil") {
+      // Aseguramos que 'extremeSequence' se evalúe primero si existe
+      if (currentDifficultyProbabilities.extremeSequence) {
+        orderedModifiers.push({
+          name: "extremeSequence",
+          config: currentDifficultyProbabilities.extremeSequence,
+        });
+      }
+      // Luego el resto de los modificadores de forma estándar
+      for (const modifierName in currentDifficultyProbabilities) {
+        if (modifierName !== "extremeSequence") {
+          // Evitamos duplicar
+          orderedModifiers.push({
+            name: modifierName,
+            config: currentDifficultyProbabilities[modifierName],
+          });
+        }
+      }
+    } else {
+      // Para otros juegos o dificultades, el orden no importa tanto
+      for (const modifierName in currentDifficultyProbabilities) {
+        orderedModifiers.push({
+          name: modifierName,
+          config: currentDifficultyProbabilities[modifierName],
+        });
+      }
+    }
+
+    for (const { name: modifierName, config } of orderedModifiers) {
       const rand = Math.random();
 
       // Ajuste de probabilidad basado en el rendimiento:
-      // Si el jugador va ganando, aumentamos ligeramente la probabilidad de que la IA aplique un modificador.
-      // Si la IA va ganando, reducimos ligeramente la probabilidad (para ser menos abrumadora o para jactarse).
       let adjustedChance = config.chance;
       const scoreDifference = playerScore - iaScore;
 
@@ -189,7 +239,6 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
 
   // Si no se aplicó ningún modificador con mensaje, podemos establecer un mensaje por defecto
   if (!modifierApplied) {
-    // Mensajes genéricos de inicio de ronda si no hay un modificador especial
     if (globalDifficulty.value === "facil") {
       messageToDisplay = `¡Vamos, tú puedes con este ${gameName}!`;
       expressionToUse = "happy";
@@ -200,7 +249,7 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
       messageToDisplay = `¡Prepárate! ¡Esta ronda de ${gameName} no será sencilla!`;
       expressionToUse = "thinking";
     }
-    shouldIntervene = false; // Los mensajes genéricos no activan la intervención central
+    shouldIntervene = false;
   }
 
   // Usar interveneAi si shouldIntervene es verdadero, de lo contrario, setAiMessage
@@ -217,6 +266,7 @@ export default function useGameOrchestrator() {
   return {
     aiMessage: readonly(aiMessage),
     aiExpression: readonly(aiExpression),
+    // Corregido: Eliminada la línea duplicada.
     aiGameModifiers: readonly(aiGameModifiers),
     isAiIntervening: readonly(isAiIntervening),
 
