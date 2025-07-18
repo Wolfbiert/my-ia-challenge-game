@@ -20,6 +20,7 @@
     <p class="attempts-info">
       Intentos: {{ attempts }} / {{ currentMaxAttempts }}
     </p>
+
     <div class="input-section">
       <input
         type="number"
@@ -58,10 +59,9 @@ export default {
       default: "normal",
       validator: (value) => ["facil", "normal", "dificil"].includes(value),
     },
-    // --- NUEVO: Prop para modificadores de la IA ---
     aiModifiers: {
       type: Object,
-      default: () => ({}), // Valor por defecto un objeto vacío
+      default: () => ({}),
     },
   },
   setup(props, { emit }) {
@@ -76,10 +76,14 @@ export default {
     const minRangeHint = ref(0);
     const maxRangeHint = ref(0);
 
-    // --- CAMBIO: Estas variables ahora serán reactivas y prefijadas con 'current' ---
     const currentMaxAttempts = ref(0);
     const currentMinRange = ref(0);
     const currentMaxRange = ref(0);
+
+    // --- NUEVO: Ref para el modificador de invertir pistas ---
+    const invertHintsActive = ref(false);
+    // --- NUEVO: Ref para el modificador de rango dinámico ---
+    const dynamicRangeShiftActive = ref(false);
 
     const motivationalPhrases = [
       "¡No te rindas! 💪",
@@ -89,7 +93,6 @@ export default {
       "¡El próximo será el correcto! 🎯",
     ];
 
-    // --- CAMBIO: Usa currentMaxAttempts ---
     const progressWidth = computed(
       () => (attempts.value / currentMaxAttempts.value) * 100
     );
@@ -120,31 +123,27 @@ export default {
           break;
       }
 
-      // --- APLICAR MODIFICADORES DE LA IA ---
       currentMinRange.value =
         modifiers.minRange !== undefined ? modifiers.minRange : baseMinRange;
       currentMaxRange.value =
         modifiers.maxRange !== undefined ? modifiers.maxRange : baseMaxRange;
 
-      // Asegúrate de que el rango no se invierta si la IA lo ajusta de forma extraña
       if (currentMinRange.value >= currentMaxRange.value) {
-        currentMaxRange.value = currentMinRange.value + 5; // Asegura un rango mínimo de 5
+        currentMaxRange.value = currentMinRange.value + 5;
       }
 
       currentMaxAttempts.value = baseMaxAttempts + (modifiers.maxAttempts || 0);
-      // Asegúrate de que los intentos no sean negativos o cero
       if (currentMaxAttempts.value <= 0) {
         currentMaxAttempts.value = 1;
       }
 
-      // Si `narrowRange` es verdadero, ajusta el rango un poco más
       if (modifiers.narrowRange) {
         const midPoint = Math.floor(
           (currentMinRange.value + currentMaxRange.value) / 2
         );
         const rangeAdjustment = Math.floor(
           (currentMaxRange.value - currentMinRange.value) * 0.15
-        ); // Reduce el 15% del rango
+        );
         currentMinRange.value = Math.max(
           currentMinRange.value,
           midPoint - rangeAdjustment
@@ -153,17 +152,20 @@ export default {
           currentMaxRange.value,
           midPoint + rangeAdjustment
         );
-        // Vuelve a verificar que el rango no se invierta
         if (currentMinRange.value >= currentMaxRange.value) {
           currentMaxRange.value = currentMinRange.value + 5;
         }
       }
 
+      // --- NUEVO: Activar/desactivar el modificador de invertir pistas ---
+      invertHintsActive.value = modifiers.invertHints || false;
+      // --- NUEVO: Activar/desactivar el modificador de rango dinámico ---
+      dynamicRangeShiftActive.value = modifiers.dynamicRangeShift || false;
+
       initializeGame();
     };
 
     const generateRandomNumber = () => {
-      // --- CAMBIO: Usar currentMinRange y currentMaxRange ---
       randomNumber.value =
         Math.floor(
           Math.random() * (currentMaxRange.value - currentMinRange.value + 1)
@@ -173,20 +175,17 @@ export default {
     const initializeGame = () => {
       generateRandomNumber();
       playerGuess.value = null;
-      // --- CAMBIO: Usar currentMinRange, currentMaxRange, currentMaxAttempts ---
       message.value = `Adivina un número entre ${currentMinRange.value} y ${currentMaxRange.value}. Tienes ${currentMaxAttempts.value} intentos.`;
       messageType.value = "info";
       attempts.value = 0;
       guessHistory.value = [];
       gameState.value = "playing";
-      // --- CAMBIO: Usar currentMinRange y currentMaxRange para las pistas ---
       minRangeHint.value = currentMinRange.value;
       maxRangeHint.value = currentMaxRange.value;
     };
 
     const getHotColdHint = (difference) => {
-      // Removed currentMaxRange from params, use ref
-      const rangeSize = currentMaxRange.value - currentMinRange.value; // Use currentMaxRange.value
+      const rangeSize = currentMaxRange.value - currentMinRange.value;
       if (difference === 0) return "";
       if (difference <= Math.ceil(rangeSize * 0.05)) return "¡Estás quemando!";
       if (difference <= Math.ceil(rangeSize * 0.15)) return "Caliente.";
@@ -209,7 +208,6 @@ export default {
         return;
       }
 
-      // --- CAMBIO: Usar currentMinRange y currentMaxRange ---
       if (guess < currentMinRange.value || guess > currentMaxRange.value) {
         message.value = `El número debe estar entre ${currentMinRange.value} y ${currentMaxRange.value}.`;
         messageType.value = "warning";
@@ -218,6 +216,7 @@ export default {
 
       attempts.value++;
       let hintText = "";
+      let isCorrect = false;
 
       if (guess === randomNumber.value) {
         message.value = `¡Felicidades! Adivinaste el número ${randomNumber.value} en ${attempts.value} intentos.`;
@@ -225,8 +224,8 @@ export default {
         gameState.value = "gameOver";
         emit("round-finished", { winner: "player" });
         hintText = "¡Correcto!";
+        isCorrect = true;
       } else if (attempts.value >= currentMaxAttempts.value) {
-        // --- CAMBIO: Usar currentMaxAttempts ---
         message.value = `¡Se acabaron los intentos! El número era ${randomNumber.value}. Perdiste esta ronda.`;
         messageType.value = "error";
         gameState.value = "gameOver";
@@ -234,33 +233,73 @@ export default {
         hintText = "¡Fallaste! Se acabaron los intentos.";
       } else {
         const difference = Math.abs(guess - randomNumber.value);
-        // --- CAMBIO: getHotColdHint ya no necesita el argumento maxRange ---
         const hotColdHint = getHotColdHint(difference);
         const phrase =
           motivationalPhrases[
             Math.floor(Math.random() * motivationalPhrases.length)
           ];
 
-        if (guess < randomNumber.value) {
+        let actualHintIsGreater = guess < randomNumber.value;
+        let hintToDisplay = actualHintIsGreater;
+
+        // --- NUEVO: Lógica para invertir pistas ---
+        if (invertHintsActive.value) {
+          hintToDisplay = !actualHintIsGreater; // Invierte la pista
+        }
+
+        if (hintToDisplay) {
+          // Si la pista (potencialmente invertida) es "Mayor"
           hintText = `Mayor. ${hotColdHint}`;
-          // --- CAMBIO: Usar currentMaxAttempts ---
           message.value = `El número es mayor. ${hotColdHint}<br>${phrase} Te quedan ${
             currentMaxAttempts.value - attempts.value
           } intentos.`;
-          if (guess >= minRangeHint.value) {
+          // Las pistas de rango se actualizan con el valor REAL, no el engaño
+          if (actualHintIsGreater && guess >= minRangeHint.value) {
             minRangeHint.value = guess + 1;
           }
         } else {
+          // Si la pista (potencialmente invertida) es "Menor"
           hintText = `Menor. ${hotColdHint}`;
-          // --- CAMBIO: Usar currentMaxAttempts ---
           message.value = `El número es menor. ${hotColdHint}<br>${phrase} Te quedan ${
             currentMaxAttempts.value - attempts.value
           } intentos.`;
-          if (guess <= maxRangeHint.value) {
+          // Las pistas de rango se actualizan con el valor REAL, no el engaño
+          if (!actualHintIsGreater && guess <= maxRangeHint.value) {
             maxRangeHint.value = guess - 1;
           }
         }
         messageType.value = "info";
+
+        // --- NUEVO: Lógica para rango dinámico cambiante (después de cada intento fallido) ---
+        if (dynamicRangeShiftActive.value && !isCorrect) {
+          // Desplaza el rango por un pequeño margen aleatorio
+          const shiftAmount = Math.floor(Math.random() * 5) + 1; // Mueve entre 1 y 5
+          if (Math.random() > 0.5) {
+            // 50% de probabilidad de mover hacia arriba o hacia abajo
+            currentMinRange.value += shiftAmount;
+            currentMaxRange.value += shiftAmount;
+          } else {
+            currentMinRange.value -= shiftAmount;
+            currentMaxRange.value -= shiftAmount;
+          }
+
+          // Asegurar que el nuevo rango sea válido (ej. min > 0)
+          if (currentMinRange.value < 1) currentMinRange.value = 1;
+          // Asegurar que el número a adivinar siga dentro del rango
+          if (randomNumber.value < currentMinRange.value) {
+            randomNumber.value = currentMinRange.value;
+          }
+          if (randomNumber.value > currentMaxRange.value) {
+            randomNumber.value = currentMaxRange.value;
+          }
+
+          // Para que la pista visual de rango también se actualice
+          minRangeHint.value = currentMinRange.value;
+          maxRangeHint.value = currentMaxRange.value;
+
+          // Opcional: Podrías añadir un mensaje extra de la IA aquí, pero mejor que sea sutil si no hay intervención central.
+          // setAiMessage('¡Mis parámetros están bailando!', 'thinking', 2000);
+        }
       }
 
       if (
@@ -275,22 +314,19 @@ export default {
     };
 
     const resetGame = () => {
-      // --- CAMBIO: Pasar también los aiModifiers ---
       setGameParameters(props.difficulty, props.aiModifiers);
     };
 
     onMounted(() => {
-      // --- CAMBIO: Llamar con props.aiModifiers al inicio ---
       setGameParameters(props.difficulty, props.aiModifiers);
     });
 
     watch(
-      () => [props.difficulty, props.aiModifiers], // Observar ambos props
+      () => [props.difficulty, props.aiModifiers],
       ([newDifficulty, newModifiers]) => {
-        // Desestructurar para obtener ambos valores
         setGameParameters(newDifficulty, newModifiers);
       },
-      { deep: true } // Observar cambios profundos en aiModifiers (ya que es un objeto)
+      { deep: true }
     );
 
     return {
@@ -298,7 +334,6 @@ export default {
       message,
       messageType,
       attempts,
-      // --- CAMBIO: Exponer currentMaxAttempts, currentMinRange, currentMaxRange ---
       currentMaxAttempts,
       currentMinRange,
       currentMaxRange,
@@ -315,6 +350,8 @@ export default {
 </script>
 
 <style scoped>
+/* (El CSS se mantiene igual que antes, no hay cambios directos necesarios aquí para los nuevos modificadores) */
+
 .guess-number-game-container {
   max-width: 400px;
   margin: auto;
