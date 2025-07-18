@@ -49,7 +49,6 @@ export default {
       default: "normal",
       validator: (value) => ["facil", "normal", "dificil"].includes(value),
     },
-    // <--- ¡NUEVA PROP DE AI MODIFIERS!
     aiModifiers: {
       type: Object,
       default: () => ({}),
@@ -60,14 +59,12 @@ export default {
     const colors = ["red", "blue", "green", "yellow"];
     let initialSequenceLength = 0;
     let roundsToWinSimon = 0;
-    const lightDuration = ref(0); // Ahora reactivo
-    const pauseBetweenLights = ref(0); // Ahora reactivo
+    const lightDuration = ref(0);
+    const pauseBetweenLights = ref(0);
 
-    // --- NUEVOS REFS PARA LOS MODIFICADORES ---
     const nonRepeatingSequenceActive = ref(false);
 
-    // Función para configurar los parámetros del juego según la dificultad y modificadores
-    const setGameParameters = (difficulty, modifiers = {}) => {
+    const setGameParametersInternal = (difficulty, modifiers = {}) => {
       let baseInitialSequenceLength,
         baseRoundsToWin,
         baseLightDuration,
@@ -93,11 +90,10 @@ export default {
           basePauseBetweenLights = 200;
           break;
         default:
-          setGameParameters("normal", modifiers);
+          setGameParametersInternal("normal", modifiers);
           return;
       }
 
-      // --- Aplicar modificador de secuencia (longitud y velocidad) ---
       let actualSequenceLength = baseInitialSequenceLength;
       let actualLightDuration = baseLightDuration;
       let actualPauseBetweenLights = basePauseBetweenLights;
@@ -112,15 +108,14 @@ export default {
         actualLightDuration = Math.max(
           50,
           Math.round(baseLightDuration * modifiers.sequenceDifficulty.speed)
-        ); // Mínimo 50ms
+        );
         actualPauseBetweenLights = Math.max(
           50,
           Math.round(
             basePauseBetweenLights * modifiers.sequenceDifficulty.speed
           )
-        ); // Mínimo 50ms
+        );
       }
-      // Si el modificador extremeSequence está activo (siempre que se aplique, sobrescribirá sequenceDifficulty)
       if (modifiers.extremeSequence) {
         actualSequenceLength = Math.max(
           1,
@@ -138,23 +133,13 @@ export default {
         );
       }
 
-      // Asignar los valores calculados a las variables reactivas
       initialSequenceLength = actualSequenceLength;
-      roundsToWinSimon = baseRoundsToWin; // Rondas para ganar no se ven afectadas por los modificadores de secuencia
+      roundsToWinSimon = baseRoundsToWin;
       lightDuration.value = actualLightDuration;
       pauseBetweenLights.value = actualPauseBetweenLights;
 
-      // --- Activar/desactivar el modificador de secuencia no repetitiva ---
       nonRepeatingSequenceActive.value =
         modifiers.nonRepeatingSequence || false;
-
-      // Asegurarse de que el juego se reinicie con la nueva dificultad si ya se está jugando
-      if (gameStarted.value || gameOver.value) {
-        resetGame();
-        startGame(); // Reinicia el juego con los nuevos parámetros
-      } else {
-        resetGame();
-      }
     };
 
     const audioMap = markRaw({
@@ -186,7 +171,6 @@ export default {
 
     const currentSimonRound = ref(1);
 
-    // --- MODIFICADO: addRandomStepToSequence y startGame ---
     const generateNewSequence = (length) => {
       const newSeq = [];
       for (let i = 0; i < length; i++) {
@@ -198,10 +182,8 @@ export default {
 
     const addStepOrGenerateNew = () => {
       if (nonRepeatingSequenceActive.value) {
-        // Si no se repite, generamos una secuencia completamente nueva de la longitud actual de la ronda
         sequence.value = generateNewSequence(currentSimonRound.value);
       } else {
-        // Comportamiento normal: añadir un paso a la secuencia existente
         const randomColorIndex = Math.floor(Math.random() * colors.length);
         sequence.value.push(colors[randomColorIndex]);
       }
@@ -221,11 +203,11 @@ export default {
         playSound(sequence.value[i]);
         await new Promise((resolve) =>
           setTimeout(resolve, lightDuration.value)
-        ); // Usa lightDuration.value
+        );
         activeLight.value = null;
         await new Promise((resolve) =>
           setTimeout(resolve, pauseBetweenLights.value)
-        ); // Usa pauseBetweenLights.value
+        );
       }
 
       isShowingSequence.value = false;
@@ -272,7 +254,7 @@ export default {
             gameOver.value = true;
             emit("round-finished", { winner: "player" });
           } else {
-            addStepOrGenerateNew(); // Usa la nueva función
+            addStepOrGenerateNew();
             showSequence();
           }
         }, 1500);
@@ -284,14 +266,15 @@ export default {
       gameOver.value = false;
       currentSimonRound.value = 1;
 
-      // Si no es repetitiva, la primera secuencia tendrá la longitud inicial
+      setGameParametersInternal(props.difficulty, props.aiModifiers);
+
       if (nonRepeatingSequenceActive.value) {
         sequence.value = generateNewSequence(initialSequenceLength);
       } else {
-        // Comportamiento normal para la primera secuencia
         sequence.value = [];
         for (let i = 0; i < initialSequenceLength; i++) {
-          addStepOrGenerateNew();
+          const randomColorIndex = Math.floor(Math.random() * colors.length);
+          sequence.value.push(colors[randomColorIndex]);
         }
       }
 
@@ -310,21 +293,30 @@ export default {
       isPlayerTurn.value = false;
       activeLight.value = null;
 
-      // Re-aplicar parámetros al reiniciar para asegurar que los modificadores se consideren
-      setGameParameters(props.difficulty, props.aiModifiers);
+      setGameParametersInternal(props.difficulty, props.aiModifiers);
     };
 
-    // --- Lifecycle Hooks y Watchers ---
     onMounted(() => {
-      setGameParameters(props.difficulty, props.aiModifiers);
+      setGameParametersInternal(props.difficulty, props.aiModifiers);
     });
 
     watch(
       () => [props.difficulty, props.aiModifiers],
       ([newDifficulty, newModifiers]) => {
-        setGameParameters(newDifficulty, newModifiers);
+        // Removed oldDifficulty, oldModifiers
+        const wasGameStarted = gameStarted.value;
+        const wasGameOver = gameOver.value;
+
+        setGameParametersInternal(newDifficulty, newModifiers);
+
+        if (wasGameStarted || wasGameOver) {
+          resetGame();
+          if (wasGameStarted && !wasGameOver) {
+            startGame();
+          }
+        }
       },
-      { deep: true } // Observa cambios profundos en aiModifiers
+      { deep: true }
     );
 
     return {
@@ -348,8 +340,7 @@ export default {
 </script>
 
 <style scoped>
-/* (El CSS se mantiene igual que antes, no hay cambios directos necesarios aquí para los nuevos modificadores) */
-
+/* (The CSS remains the same) */
 .simon-dice-game-container {
   background-color: #e8f5e9; /* Un verde muy claro para este juego */
   padding: 40px;
@@ -527,7 +518,6 @@ h2 {
 
 .simon-button {
   /* ... (existing styles) ... */
-  /* Asegúrate de que todas las propiedades con cambios tengan una transición */
   transition: background-color 0.2s ease-out, transform 0.1s ease-out,
     box-shadow 0.2s ease, filter 0.2s ease;
 }
