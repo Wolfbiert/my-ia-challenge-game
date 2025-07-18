@@ -72,7 +72,7 @@ const modifierProbabilities = {
     normal: {
       maxAttempts: {
         chance: 0.4,
-        value: -1,
+        value: -2,
         message: "¡No te voy a dejar ganar tan fácil! Un pequeño ajuste...",
         expression: "angry",
         intervene: true,
@@ -89,7 +89,7 @@ const modifierProbabilities = {
     dificil: {
       maxAttempts: {
         chance: 0.5,
-        value: -1,
+        value: -3,
         message: "¡Me estás desafiando, humano! ¡Esta vez el desafío es mayor!",
         expression: "angry",
         intervene: true,
@@ -104,8 +104,7 @@ const modifierProbabilities = {
       invertHints: {
         chance: 0.2,
         value: true,
-        message:
-          '¡Cuidado! Mi análisis de datos indica que mis "sugerencias" pueden ser... engañosas. ¡Jajaja!',
+        message: "¡Cuidado! Las pistas mienten. ¡Jajaja!",
         expression: "thinking",
         intervene: true,
       },
