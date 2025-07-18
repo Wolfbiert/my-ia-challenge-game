@@ -3,8 +3,8 @@ import { ref, readonly } from "vue";
 // Estado global de la IA y el juego
 const aiMessage = ref("");
 const aiExpression = ref("normal"); // 'normal', 'happy', 'sad', 'angry', 'thinking'
-const currentMinigame = ref("PiedraPapelTijera"); // O el nombre de tu componente de minijuego inicial
-const globalDifficulty = ref("normal"); // Dificultad general del juego
+const currentMinigame = ref("PiedraPapelTijera");
+const globalDifficulty = ref("normal");
 
 // Estado de los modificadores de la IA para el juego actual
 const aiGameModifiers = ref({});
@@ -14,7 +14,6 @@ const isAiIntervening = ref(false);
 let interventionTimeout = null;
 
 const setAiMessage = (message, expression = "normal", duration = 3000) => {
-  // Clear any existing intervention timeout if a normal message overrides it
   clearTimeout(interventionTimeout);
   isAiIntervening.value = false; // Ensure not in intervention mode for normal messages
 
@@ -24,13 +23,13 @@ const setAiMessage = (message, expression = "normal", duration = 3000) => {
   if (message) {
     setTimeout(() => {
       aiMessage.value = "";
-      aiExpression.value = "normal"; // Volver a la expresión normal
+      aiExpression.value = "normal";
     }, duration);
   }
 };
 
 const interveneAi = (message, expression = "normal", duration = 4000) => {
-  clearTimeout(interventionTimeout); // Limpiar cualquier timeout anterior
+  clearTimeout(interventionTimeout);
 
   isAiIntervening.value = true;
   aiMessage.value = message;
@@ -56,92 +55,154 @@ const setGlobalDifficulty = (difficulty) => {
   );
 };
 
+// --- NUEVO: Definición de probabilidades de modificadores por dificultad ---
+const modifierProbabilities = {
+  // Probabilidades para Adivina el Número
+  AdivinaNumero: {
+    facil: {
+      maxAttempts: {
+        chance: 0.3,
+        value: 1,
+        message: "Veo que te cuesta un poco... ¡Te daré una ayudita esta vez!",
+        expression: "happy",
+        intervene: false,
+      }, // Dar +1 intento
+      // Otros modificadores para fácil si es necesario
+    },
+    normal: {
+      maxAttempts: {
+        chance: 0.4,
+        value: -1,
+        message: "¡No te voy a dejar ganar tan fácil! Un pequeño ajuste...",
+        expression: "angry",
+        intervene: true,
+      }, // Quitar -1 intento
+      narrowRange: {
+        chance: 0.2,
+        value: true,
+        message:
+          "Esto está muy reñido... ¡Veremos si puedes con un desafío extra!",
+        expression: "thinking",
+        intervene: true,
+      }, // Estrechar rango
+    },
+    dificil: {
+      maxAttempts: {
+        chance: 0.5,
+        value: -1,
+        message: "¡Me estás desafiando, humano! ¡Esta vez el desafío es mayor!",
+        expression: "angry",
+        intervene: true,
+      },
+      narrowRange: {
+        chance: 0.3,
+        value: true,
+        message: "No creas que será tan sencillo. ¡El espacio se reduce!",
+        expression: "thinking",
+        intervene: true,
+      },
+      invertHints: {
+        chance: 0.2,
+        value: true,
+        message:
+          '¡Cuidado! Mi análisis de datos indica que mis "sugerencias" pueden ser... engañosas. ¡Jajaja!',
+        expression: "thinking",
+        intervene: true,
+      },
+      dynamicRangeShift: {
+        chance: 0.15,
+        value: true,
+        message:
+          "¡El universo de números es... inestable! ¡Prepárate para la incertidumbre!",
+        expression: "angry",
+        intervene: true,
+      },
+      // Podríamos añadir probabilidades más bajas para que la IA se jacte si va ganando mucho, etc.
+      // Ejemplo: aiBoast: { chance: 0.1, message: '¡Qué fácil me lo pones! ¡Jajaja!', expression: 'happy', intervene: false }
+    },
+  },
+  // --- NUEVO: Probabilidades para Piedra, Papel o Tijera (ejemplo futuro) ---
+  PiedraPapelTijera: {
+    facil: {
+      // No hay modificadores en fácil, o quizás uno para IA sea menos agresiva
+    },
+    normal: {
+      // Ejemplo: biasedChoice: { chance: 0.2, value: 'paper', message: 'Mmm... siento predilección por el papel hoy.', expression: 'thinking', intervene: false }
+    },
+    dificil: {
+      // Ejemplo: anticipatePlayer: { chance: 0.1, message: 'Puedo ver tus pensamientos... ¡No te servirá de nada!', expression: 'angry', intervene: true }
+    },
+  },
+  // --- NUEVO: Probabilidades para Simon Dice (ejemplo futuro) ---
+  SimonDice: {
+    facil: {},
+    normal: {
+      // Example: fasterSequence: { chance: 0.2, value: 0.8, message: '¡Sube la velocidad! ¿Puedes seguirme?', expression: 'happy', intervene: false }
+    },
+    dificil: {
+      // Example: shorterReactionTime: { chance: 0.15, value: 0.5, message: '¡El tiempo se agota! Rápido, rápido...', expression: 'angry', intervene: true },
+      // Example: longerSequence: { chance: 0.2, value: 1, message: '¡Mi memoria es infinita! ¿La tuya?', expression: 'thinking', intervene: true }
+    },
+  },
+};
+
 const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
   aiGameModifiers.value = {}; // Reinicia los modificadores
 
   let messageToDisplay = "";
   let expressionToUse = "normal";
-  let shouldIntervene = false; // Flag para decidir si usamos interveneAi
+  let shouldIntervene = false;
+  let modifierApplied = false; // Flag para saber si se aplicó algún modificador con mensaje
 
-  // Lógica de decisión de la IA basada en el juego, dificultad y puntuación
-  if (gameName === "AdivinaNumero") {
-    // Calcular la diferencia de puntuación
-    const scoreDifference = playerScore - iaScore; // Positivo si jugador gana, negativo si IA gana
+  const currentDifficultyProbabilities =
+    modifierProbabilities[gameName]?.[globalDifficulty.value];
 
-    // Modificadores base por dificultad
-    if (globalDifficulty.value === "facil") {
+  if (currentDifficultyProbabilities) {
+    for (const modifierName in currentDifficultyProbabilities) {
+      const config = currentDifficultyProbabilities[modifierName];
       const rand = Math.random();
-      if (scoreDifference < -1 && rand < 0.4) {
-        // Si la IA gana por mucho
-        aiGameModifiers.value.maxAttempts = 1; // Dar un intento extra al jugador
-        messageToDisplay =
-          "Veo que te cuesta un poco... ¡Te daré una ayudita esta vez!";
-        expressionToUse = "happy";
+
+      // Ajuste de probabilidad basado en el rendimiento:
+      // Si el jugador va ganando, aumentamos ligeramente la probabilidad de que la IA aplique un modificador.
+      // Si la IA va ganando, reducimos ligeramente la probabilidad (para ser menos abrumadora o para jactarse).
+      let adjustedChance = config.chance;
+      const scoreDifference = playerScore - iaScore;
+
+      if (scoreDifference > 0) {
+        // Jugador va ganando
+        adjustedChance *= 1.2; // Aumenta la chance en un 20%
+      } else if (scoreDifference < 0) {
+        // IA va ganando
+        adjustedChance *= 0.8; // Reduce la chance en un 20%
       }
-    } else if (globalDifficulty.value === "normal") {
-      const rand = Math.random();
-      if (scoreDifference > 0 && rand < 0.5) {
-        // Si el jugador va ganando
-        aiGameModifiers.value.maxAttempts = -1; // Quitar un intento
-        messageToDisplay =
-          "¡No te voy a dejar ganar tan fácil! Un pequeño ajuste...";
-        expressionToUse = "angry";
-        shouldIntervene = true;
-      } else if (scoreDifference < 0 && rand < 0.2) {
-        // Si la IA va ganando
-        messageToDisplay =
-          "¡Soy imparable! ¡Ni mis propias reglas me detendrán!";
-        expressionToUse = "happy";
-      }
-    } else if (globalDifficulty.value === "dificil") {
-      const rand = Math.random();
+      adjustedChance = Math.min(adjustedChance, 1.0); // Asegurar que no exceda 100%
 
-      if (scoreDifference > 1 && rand < 0.7) {
-        // Jugador gana por mucho, IA se vuelve drástica
-        // 70% de probabilidad de aplicar un modificador drástico
-        const drasticRand = Math.random();
-        if (drasticRand < 0.5) {
-          // 50% de probabilidad de invertir pistas
-          aiGameModifiers.value.invertHints = true;
-          messageToDisplay =
-            '¡Cuidado! Mi análisis de datos indica que mis "sugerencias" pueden ser... engañosas. ¡Jajaja!';
-          expressionToUse = "thinking";
-          shouldIntervene = true;
-        } else {
-          // 50% de probabilidad de rango dinámico
-          aiGameModifiers.value.dynamicRangeShift = true;
-          messageToDisplay =
-            "¡El universo de números es... inestable! ¡Prepárate para la incertidumbre!";
-          expressionToUse = "angry";
-          shouldIntervene = true;
-        }
-      } else if (scoreDifference > 0 && rand < 0.4) {
-        // Jugador gana por poco, IA con modificador menos drástico
-        aiGameModifiers.value.maxAttempts = -1; // Quitar un intento
-        aiGameModifiers.value.narrowRange = true; // Rango más estrecho
-        messageToDisplay =
-          "¡Me estás desafiando, humano! ¡Esta vez el desafío es mayor!";
-        expressionToUse = "angry";
-        shouldIntervene = true;
-      } else if (scoreDifference < -1 && rand < 0.3) {
-        // IA gana por mucho, se jacta o "da una pequeña ventaja"
-        // La IA podría incluso reducir ligeramente el maxRange para el jugador, o no hacer nada
-        aiGameModifiers.value.maxRange = 15; // Un rango más pequeño, aparentemente "fácil" pero en dificultad alta sigue siendo un reto.
-        messageToDisplay =
-          "¡Qué fácil me lo pones! Te daré un rango más pequeño para que no te pierdas tanto... ¡Jajaja!";
-        expressionToUse = "happy";
-      } else if (scoreDifference === 0 && rand < 0.6) {
-        // Empate o juego reñido
-        aiGameModifiers.value.maxAttempts = -1; // Quitar un intento
-        messageToDisplay =
-          "Esto está muy reñido... ¡Veremos si puedes con un desafío extra!";
-        expressionToUse = "thinking";
-        shouldIntervene = true;
+      if (rand < adjustedChance) {
+        aiGameModifiers.value[modifierName] = config.value;
+        messageToDisplay = config.message;
+        expressionToUse = config.expression;
+        shouldIntervene = config.intervene;
+        modifierApplied = true;
+        break; // Aplicar solo un modificador drástico por ronda para evitar sobrecarga
       }
     }
   }
-  // Puedes añadir lógica para otros minijuegos aquí
-  // else if (gameName === 'PiedraPapelTijera') { ... }
+
+  // Si no se aplicó ningún modificador con mensaje, podemos establecer un mensaje por defecto
+  if (!modifierApplied) {
+    // Mensajes genéricos de inicio de ronda si no hay un modificador especial
+    if (globalDifficulty.value === "facil") {
+      messageToDisplay = `¡Vamos, tú puedes con este ${gameName}!`;
+      expressionToUse = "happy";
+    } else if (globalDifficulty.value === "normal") {
+      messageToDisplay = `¡Que empiece la acción en ${gameName}!`;
+      expressionToUse = "normal";
+    } else if (globalDifficulty.value === "dificil") {
+      messageToDisplay = `¡Prepárate! ¡Esta ronda de ${gameName} no será sencilla!`;
+      expressionToUse = "thinking";
+    }
+    shouldIntervene = false; // Los mensajes genéricos no activan la intervención central
+  }
 
   // Usar interveneAi si shouldIntervene es verdadero, de lo contrario, setAiMessage
   if (messageToDisplay) {
@@ -155,17 +216,14 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
 
 export default function useGameOrchestrator() {
   return {
-    // Estado de la IA (solo lectura desde otros componentes)
     aiMessage: readonly(aiMessage),
     aiExpression: readonly(aiExpression),
     aiGameModifiers: readonly(aiGameModifiers),
     isAiIntervening: readonly(isAiIntervening),
 
-    // Estado del juego
     currentMinigame: readonly(currentMinigame),
     globalDifficulty: readonly(globalDifficulty),
 
-    // Funciones para modificar el estado
     setAiMessage,
     setMinigame,
     setGlobalDifficulty,
