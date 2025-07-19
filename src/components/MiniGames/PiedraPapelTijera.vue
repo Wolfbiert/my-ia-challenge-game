@@ -332,7 +332,11 @@ export default {
       startTimer(); // Iniciar el temporizador para la elección del jugador
     };
 
-    const getIaChoice = (playerChoiceMade, currentAbility, actualIaPredictionChance) => {
+    const getIaChoice = (
+      playerChoiceMade,
+      currentAbility,
+      actualIaPredictionChance
+    ) => {
       let chosenIaMove;
       const availableChoices = [...choices];
 
@@ -362,13 +366,19 @@ export default {
         } else {
           // Lógica basada en patrones o aleatoriedad
           if (iaPatternLogic === "random") {
-            chosenIaMove = availableChoices[Math.floor(Math.random() * availableChoices.length)];
+            chosenIaMove =
+              availableChoices[
+                Math.floor(Math.random() * availableChoices.length)
+              ];
           } else if (iaPatternLogic === "counter-player" && lastPlayerChoice) {
             if (lastPlayerChoice === "rock") chosenIaMove = "paper";
             else if (lastPlayerChoice === "paper") chosenIaMove = "scissors";
             else if (lastPlayerChoice === "scissors") chosenIaMove = "rock";
             if (!availableChoices.includes(chosenIaMove)) {
-              chosenIaMove = availableChoices[Math.floor(Math.random() * availableChoices.length)];
+              chosenIaMove =
+                availableChoices[
+                  Math.floor(Math.random() * availableChoices.length)
+                ];
             }
           } else if (iaPatternLogic === "complex-pattern") {
             const bias = Math.random();
@@ -379,18 +389,32 @@ export default {
             else if (availableChoices.includes("scissors"))
               chosenIaMove = "scissors";
             else
-              chosenIaMove = availableChoices[Math.floor(Math.random() * availableChoices.length)];
+              chosenIaMove =
+                availableChoices[
+                  Math.floor(Math.random() * availableChoices.length)
+                ];
           } else {
-            chosenIaMove = availableChoices[Math.floor(Math.random() * availableChoices.length)];
+            chosenIaMove =
+              availableChoices[
+                Math.floor(Math.random() * availableChoices.length)
+              ];
           }
         }
       }
 
       // Doble chequeo por si la IA elige la opción bloqueada
-      if (currentAbility === "bloqueo" && chosenIaMove === iaBlockedChoice.value) {
-        const alternativeChoices = availableChoices.filter((c) => c !== iaBlockedChoice.value);
+      if (
+        currentAbility === "bloqueo" &&
+        chosenIaMove === iaBlockedChoice.value
+      ) {
+        const alternativeChoices = availableChoices.filter(
+          (c) => c !== iaBlockedChoice.value
+        );
         if (alternativeChoices.length > 0) {
-          chosenIaMove = alternativeChoices[Math.floor(Math.random() * alternativeChoices.length)];
+          chosenIaMove =
+            alternativeChoices[
+              Math.floor(Math.random() * alternativeChoices.length)
+            ];
         } else {
           chosenIaMove = choices[Math.floor(Math.random() * choices.length)];
         }
@@ -408,14 +432,14 @@ export default {
     // <--- NUEVA FUNCIÓN: Generar la elección de la IA de antemano para el acertijo --->
     let preChosenIaMove = null;
     const preCalculateIaChoice = () => {
-        // La IA "elige" su movimiento para esta ronda.
-        // Aquí no pasamos playerChoice.value porque el jugador aún no ha elegido.
-        // La IA usará su iaPredictionChance (siempre 0 aquí), iaPatternLogic, etc.
-        // IMPORTANTE: Aquí NO aplicamos habilidades de Desestabilizar o Bloqueo aún,
-        // porque el jugador podría decidir usarlas DESPUÉS de ver el acertijo.
-        // La única habilidad que afecta esta pre-cálculo es el propio acertijo,
-        // pero la elección ya está hecha.
-        preChosenIaMove = getIaChoice(null, null, iaPredictionChance);
+      // La IA "elige" su movimiento para esta ronda.
+      // Aquí no pasamos playerChoice.value porque el jugador aún no ha elegido.
+      // La IA usará su iaPredictionChance (siempre 0 aquí), iaPatternLogic, etc.
+      // IMPORTANTE: Aquí NO aplicamos habilidades de Desestabilizar o Bloqueo aún,
+      // porque el jugador podría decidir usarlas DESPUÉS de ver el acertijo.
+      // La única habilidad que afecta esta pre-cálculo es el propio acertijo,
+      // pero la elección ya está hecha.
+      preChosenIaMove = getIaChoice(null, null, iaPredictionChance);
     };
 
     const playRound = async (choice) => {
@@ -433,7 +457,8 @@ export default {
 
       // Reacciones de la IA a las habilidades activas (antes de su elección final)
       if (activeAbility.value === "desestabilizar") {
-        gameMessage.value = "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...";
+        gameMessage.value =
+          "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...";
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } else if (activeAbility.value === "bloqueo") {
         gameMessage.value = `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`;
@@ -456,7 +481,7 @@ export default {
 
       // Si Desestabilizar estuvo activa, la IA elige al azar (anula predictionChance)
       if (activeAbility.value === "desestabilizar") {
-          currentIaPredictionChance = 0; // Fuerza IA a ser aleatoria
+        currentIaPredictionChance = 0; // Fuerza IA a ser aleatoria
       }
 
       // NUEVO: Lógica para que la IA contrarreste habilidades si iaCounterAbilityChance lo permite
@@ -469,13 +494,23 @@ export default {
           gameMessage.value = "¡La IA ha contrarrestado tu Desestabilización!";
           messageType.value = "error";
           // Reestablece la probabilidad de predicción original de la dificultad
-          currentIaPredictionChance = setGameParameters(props.difficulty).iaPredictionChance; // Ajustado
-          chosenIaMove = getIaChoice(playerChoice.value, null, currentIaPredictionChance); // Re-calcula la elección
+          currentIaPredictionChance = setGameParameters(
+            props.difficulty
+          ).iaPredictionChance; // Ajustado
+          chosenIaMove = getIaChoice(
+            playerChoice.value,
+            null,
+            currentIaPredictionChance
+          ); // Re-calcula la elección
         } else if (activeAbility.value === "bloqueo") {
           gameMessage.value = `¡La IA ha anulado tu Bloqueo de ${iaBlockedChoice.value}!`;
           messageType.value = "error";
           iaBlockedChoice.value = null; // La IA anula el bloqueo
-          chosenIaMove = getIaChoice(playerChoice.value, null, currentIaPredictionChance); // Re-calcula la elección sin bloqueo
+          chosenIaMove = getIaChoice(
+            playerChoice.value,
+            null,
+            currentIaPredictionChance
+          ); // Re-calcula la elección sin bloqueo
         } else if (activeAbility.value === "acertijo") {
           gameMessage.value = `¡La IA te devuelve el acertijo con una respuesta directa!`;
           messageType.value = "error";
@@ -540,12 +575,14 @@ export default {
 
       // --- Fin de la ronda, verificar el estado del juego ---
       if (playerWins.value === Math.ceil(totalRounds / 2)) {
-        gameMessage.value = "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!";
+        gameMessage.value =
+          "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!";
         messageType.value = "success";
         gameFinished.value = true;
         emit("round-finished", { winner: "player", score: playerWins.value });
       } else if (iaWins.value === Math.ceil(totalRounds / 2)) {
-        gameMessage.value = "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera.";
+        gameMessage.value =
+          "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera.";
         messageType.value = "error";
         gameFinished.value = true;
         emit("round-finished", { winner: "ia", score: iaWins.value });
@@ -555,7 +592,8 @@ export default {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           resetRound();
         } else {
-          gameMessage.value = "¡Fin del juego! Resultado final. Puedes jugar de nuevo.";
+          gameMessage.value =
+            "¡Fin del juego! Resultado final. Puedes jugar de nuevo.";
           gameFinished.value = true;
           emit("round-finished", { winner: "draw", score: playerWins.value });
         }
@@ -564,7 +602,8 @@ export default {
 
     const useAbility = (abilityName, blockedChoice = null) => {
       // <--- LÓGICA DE HABILIDADES MEJORADA ---
-      if (abilityUsedThisRound.value) { // <--- Nueva comprobación
+      if (abilityUsedThisRound.value) {
+        // <--- Nueva comprobación
         gameMessage.value = "Ya has usado una habilidad en esta ronda.";
         messageType.value = "warning";
         setTimeout(() => {
@@ -573,7 +612,10 @@ export default {
         return;
       }
 
-      if (abilitiesUsed.value[abilityName] || gameState.value !== "playerChoice") {
+      if (
+        abilitiesUsed.value[abilityName] ||
+        gameState.value !== "playerChoice"
+      ) {
         gameMessage.value = `Ya usaste la habilidad "${abilityName}" o no es el momento.`;
         messageType.value = "warning";
         setTimeout(() => {
@@ -611,15 +653,18 @@ export default {
     };
 
     const resetMessageState = () => {
-        // Si el acertijo está activo, no sobrescribir el mensaje
-        if (riddleActive.value) return;
+      // Si el acertijo está activo, no sobrescribir el mensaje
+      if (riddleActive.value) return;
 
-        // Si no hay habilidad activa, o si la habilidad activa no es acertijo,
-        // o si el acertijo ya no está activo (fue contrarrestado o la ronda avanzó)
-        if (!activeAbility.value || (activeAbility.value === "acertijo" && !riddleActive.value)) {
-            gameMessage.value = "Elige tu jugada...";
-            messageType.value = "info";
-        }
+      // Si no hay habilidad activa, o si la habilidad activa no es acertijo,
+      // o si el acertijo ya no está activo (fue contrarrestado o la ronda avanzó)
+      if (
+        !activeAbility.value ||
+        (activeAbility.value === "acertijo" && !riddleActive.value)
+      ) {
+        gameMessage.value = "Elige tu jugada...";
+        messageType.value = "info";
+      }
     };
 
     // --- Acertijos de la IA ---
@@ -722,7 +767,7 @@ export default {
       startGame,
       useAbility,
       iaBlockedChoice,
-      abilityUsedThisRound // Exponer para controlar botones en el template si es necesario
+      abilityUsedThisRound, // Exponer para controlar botones en el template si es necesario
     };
   },
 };
