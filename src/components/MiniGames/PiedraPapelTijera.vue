@@ -242,7 +242,7 @@ export default {
     const timeBarWidth = ref(100); // Para la visual de la barra
     let timerInterval = null;
     let maxTimePerRound = 0; // Se definirá según la dificultad
-    const riddleActive = ref(false); // Para controlar si el acertijo está activo y debe permanecer
+    const riddleActive = ref(0); // Para controlar si el acertijo está activo y debe permanecer (se usa 0/1 para compatibilidad anterior, aunque un booleano sería más limpio)
 
     // Sonidos
     const explosionSound = new Howl({
@@ -257,8 +257,7 @@ export default {
     // Probabilidades y duraciones (ajustadas)
     let iaPredictionChance = 0;
     let iaThinkingDuration = 0;
-    // Eliminamos iaCounterAbilityChance por completo
-    // let iaCounterAbilityChance = 0;
+    // Eliminamos iaCounterAbilityChance por completo, ya no es utilizado.
     let iaPatternLogic = "random";
     let iaNextPatternMove = null;
     let lastPlayerChoice = null;
@@ -269,21 +268,18 @@ export default {
         case "facil":
           iaPredictionChance = 0;
           iaThinkingDuration = 2000;
-          // iaCounterAbilityChance = 0; // Eliminado
           maxTimePerRound = 120 * 1000; // 2 minutos
           iaPatternLogic = "random";
           break;
         case "normal":
           iaPredictionChance = 0.3;
           iaThinkingDuration = 3000;
-          // iaCounterAbilityChance = 0.2; // Eliminado
           maxTimePerRound = 60 * 1000; // 1 minuto
           iaPatternLogic = "counter-player";
           break;
         case "dificil":
           iaPredictionChance = 0.6;
           iaThinkingDuration = 3500;
-          // iaCounterAbilityChance = 0.4; // Eliminado
           maxTimePerRound = 30 * 1000; // 30 segundos
           iaPatternLogic = "complex-pattern";
           break;
@@ -319,7 +315,7 @@ export default {
       roundLoser.value = null;
       activeAbility.value = null; // Reiniciar habilidad activa
       iaBlockedChoice.value = null; // Reiniciar bloqueo
-      riddleActive.value = false; // Asegurar que el acertijo no esté activo
+      riddleActive.value = false; // Asegurar que el acertijo no esté activo al inicio de la ronda
       abilityUsedThisRound.value = false; // Reiniciar para la nueva ronda
 
       // Re-establecer los parámetros de la IA a su estado normal de dificultad
@@ -443,7 +439,9 @@ export default {
       showExplosion.value = false;
       iaHasChosen.value = false;
       roundLoser.value = null;
-      riddleActive.value = false; // Resetear el estado del acertijo al iniciar la jugada del player
+      // [CAMBIO 1]: Se eliminó el reseteo de riddleActive aquí.
+      // Ya no se resetea al inicio de playRound para mantener el estado de la habilidad.
+      // riddleActive.value = false; // <-- Comentada o eliminada
 
       // Almacenar la elección del jugador para la lógica de patrón de la IA
       lastPlayerChoice = choice;
@@ -468,28 +466,29 @@ export default {
       clearInterval(iaThinkingInterval);
 
       // --- Elección FINAL de la IA ---
-      let chosenIaMove = preChosenIaMove;
+      let finalIaMove;
 
+      // [CAMBIO 2]: Lógica condicional para la elección final de la IA
+      if (activeAbility.value === "acertijo") {
+        // Si el acertijo está activo, la IA usa la jugada pre-calculada.
+        finalIaMove = preChosenIaMove;
+      }
       // Si Desestabilizar estuvo activa, la IA elige al azar (anula predictionChance)
-      if (activeAbility.value === "desestabilizar") {
-        // Directamente afectamos iaPredictionChance para esta ronda, si es necesario,
-        // o si getIaChoice siempre usa la global iaPredictionChance
-        // Si getIaChoice toma iaPredictionChance como parámetro, asegurate de pasar 0 aquí.
-        chosenIaMove = getIaChoice(playerChoice.value, null, 0); // Forzamos 0 para Desestabilizar
-      } else {
-        // Si no hay Desestabilizar, la IA usa su lógica normal
-        chosenIaMove = getIaChoice(
+      else if (activeAbility.value === "desestabilizar") {
+        // Forzamos 0 de probabilidad de predicción para 'desestabilizar'
+        finalIaMove = getIaChoice(playerChoice.value, null, 0);
+      }
+      // En cualquier otro caso (habilidad de bloqueo o ninguna habilidad activa), la IA usa su lógica normal
+      else {
+        finalIaMove = getIaChoice(
           playerChoice.value,
-          activeAbility.value,
+          activeAbility.value, // Pasa la habilidad activa (ej. 'bloqueo') para que getIaChoice la aplique
           iaPredictionChance
         );
       }
 
-      // Lógica para que la IA contrarreste habilidades ha sido ELIMINADA.
-      // Ya no hay un bloque 'if' que compruebe iaCounterAbilityChance.
-
-      iaChoice.value = chosenIaMove;
-      iaThinkingDisplayChoice.value = chosenIaMove;
+      iaChoice.value = finalIaMove; // Asignamos la jugada final de la IA
+      iaThinkingDisplayChoice.value = finalIaMove;
       gameState.value = "iaChosen";
       iaHasChosen.value = true;
       await new Promise((resolve) => setTimeout(resolve, 600));
@@ -539,6 +538,10 @@ export default {
         await new Promise((resolve) => setTimeout(resolve, 800));
         gameState.value = "roundOver";
       }
+
+      // [CAMBIO 3]: Se resetea riddleActive al final de la ronda.
+      // Esto asegura que el acertijo persista durante la ronda activa pero se limpie para la siguiente.
+      riddleActive.value = false; // Ahora sí, se resetea al final de la ronda.
 
       // --- Fin de la ronda, verificar el estado del juego ---
       if (playerWins.value === Math.ceil(totalRounds / 2)) {
