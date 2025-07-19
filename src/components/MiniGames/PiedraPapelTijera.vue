@@ -342,26 +342,35 @@ export default {
 
       // [CAMBIO 2]: Lógica para la habilidad "Desestabilizar"
       if (iaErrorChance > 0 && playerChoiceMade) {
-          // Si Desestabilizar está activa y el jugador ha hecho una elección
-          if (randomNumber < iaErrorChance) {
-              // La IA comete un error y elige la jugada que pierde contra el jugador
-              if (playerChoiceMade === "rock") chosenIaMove = "scissors"; // Roca pierde contra Tijera
-              else if (playerChoiceMade === "paper") chosenIaMove = "rock"; // Papel pierde contra Roca
-              else if (playerChoiceMade === "scissors") chosenIaMove = "paper"; // Tijera pierde contra Papel
+        // Si Desestabilizar está activa y el jugador ha hecho una elección
+        if (randomNumber < iaErrorChance) {
+          // La IA comete un error y elige la jugada que pierde contra el jugador
+          if (playerChoiceMade === "rock")
+            chosenIaMove = "scissors"; // Roca pierde contra Tijera
+          else if (playerChoiceMade === "paper")
+            chosenIaMove = "rock"; // Papel pierde contra Roca
+          else if (playerChoiceMade === "scissors") chosenIaMove = "paper"; // Tijera pierde contra Papel
 
-              // Asegurarse de que el movimiento de error no esté bloqueado
-              if (currentAbility === "bloqueo" && iaBlockedChoice.value === chosenIaMove) {
-                  // Si el movimiento de error está bloqueado, elige al azar de los disponibles
-                  const alternatives = availableChoices.filter(c => c !== iaBlockedChoice.value);
-                  if (alternatives.length > 0) {
-                      chosenIaMove = alternatives[Math.floor(Math.random() * alternatives.length)];
-                  } else {
-                      // Si todo está bloqueado (caso muy raro), elige al azar de todas las opciones
-                      chosenIaMove = choices[Math.floor(Math.random() * choices.length)];
-                  }
-              }
-              return chosenIaMove; // Retorna el movimiento erróneo
+          // Asegurarse de que el movimiento de error no esté bloqueado
+          if (
+            currentAbility === "bloqueo" &&
+            iaBlockedChoice.value === chosenIaMove
+          ) {
+            // Si el movimiento de error está bloqueado, elige al azar de los disponibles
+            const alternatives = availableChoices.filter(
+              (c) => c !== iaBlockedChoice.value
+            );
+            if (alternatives.length > 0) {
+              chosenIaMove =
+                alternatives[Math.floor(Math.random() * alternatives.length)];
+            } else {
+              // Si todo está bloqueado (caso muy raro), elige al azar de todas las opciones
+              chosenIaMove =
+                choices[Math.floor(Math.random() * choices.length)];
+            }
           }
+          return chosenIaMove; // Retorna el movimiento erróneo
+        }
       }
 
       // Lógica de patrón compleja (si ya se determinó un nextPatternMove)
@@ -487,8 +496,7 @@ export default {
       else if (activeAbility.value === "desestabilizar") {
         // La IA tiene un 75% de probabilidad de cometer el error (elegir la que pierde contra el jugador)
         finalIaMove = getIaChoice(playerChoice.value, null, 0, 0.75);
-      }
-      else {
+      } else {
         finalIaMove = getIaChoice(
           playerChoice.value,
           activeAbility.value,
