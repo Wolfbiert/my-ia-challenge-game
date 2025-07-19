@@ -287,6 +287,7 @@ export default {
           iaPatternLogic = "complex-pattern";
           break;
       }
+      // NOTA: Esta función no devuelve un objeto, solo actualiza las variables let.
     };
 
     const startGame = () => {
@@ -434,7 +435,7 @@ export default {
     const preCalculateIaChoice = () => {
       // La IA "elige" su movimiento para esta ronda.
       // Aquí no pasamos playerChoice.value porque el jugador aún no ha elegido.
-      // La IA usará su iaPredictionChance (siempre 0 aquí), iaPatternLogic, etc.
+      // La IA usará su iaPredictionChance, iaPatternLogic, etc.
       // IMPORTANTE: Aquí NO aplicamos habilidades de Desestabilizar o Bloqueo aún,
       // porque el jugador podría decidir usarlas DESPUÉS de ver el acertijo.
       // La única habilidad que afecta esta pre-cálculo es el propio acertijo,
@@ -494,14 +495,14 @@ export default {
           gameMessage.value = "¡La IA ha contrarrestado tu Desestabilización!";
           messageType.value = "error";
           // Reestablece la probabilidad de predicción original de la dificultad
-          currentIaPredictionChance = setGameParameters(
-            props.difficulty
-          ).iaPredictionChance; // Ajustado
+          // Llama a setGameParameters para actualizar las variables globales
+          setGameParameters(props.difficulty);
+          // Luego usa la variable global actualizada
           chosenIaMove = getIaChoice(
             playerChoice.value,
             null,
-            currentIaPredictionChance
-          ); // Re-calcula la elección
+            iaPredictionChance // <-- CORRECCIÓN APLICADA AQUÍ
+          );
         } else if (activeAbility.value === "bloqueo") {
           gameMessage.value = `¡La IA ha anulado tu Bloqueo de ${iaBlockedChoice.value}!`;
           messageType.value = "error";
