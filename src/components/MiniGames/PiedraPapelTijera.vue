@@ -252,29 +252,28 @@ export default {
     let iaPredictionChance = 0;
     let iaThinkingDuration = 0;
     let iaPatternLogic = "random";
-    let iaNextPatternMove = null;
-    let lastPlayerChoice = null;
+    // Removed 'iaNextPatternMove' as it's no longer used.
+    // Removed 'lastPlayerChoice' as it's no longer used in current logic.
 
     const setGameParameters = (difficulty) => {
-      iaNextPatternMove = null;
       switch (difficulty) {
         case "facil":
-          iaPredictionChance = 0;
+          iaPredictionChance = 0; // IA no predice
           iaThinkingDuration = 2000;
           maxTimePerRound = 120 * 1000;
-          iaPatternLogic = "random";
+          iaPatternLogic = "random"; // IA puramente aleatoria
           break;
         case "normal":
-          iaPredictionChance = 0.3;
+          iaPredictionChance = 0; // IA no predice
           iaThinkingDuration = 3000;
           maxTimePerRound = 60 * 1000;
-          iaPatternLogic = "counter-player";
+          iaPatternLogic = "random"; // IA puramente aleatoria (ya no "counter-player")
           break;
         case "dificil":
-          iaPredictionChance = 0.6;
+          iaPredictionChance = 0.3; // IA predice el 30% de las veces
           iaThinkingDuration = 3500;
           maxTimePerRound = 30 * 1000;
-          iaPatternLogic = "complex-pattern";
+          iaPatternLogic = "complex-pattern"; // Lógica de patrón más sutil
           break;
       }
     };
@@ -320,12 +319,11 @@ export default {
       startTimer();
     };
 
-    // [CAMBIO 1]: Añadir 'iaErrorChance' como nuevo parámetro
     const getIaChoice = (
       playerChoiceMade,
       currentAbility,
       actualIaPredictionChance,
-      iaErrorChance = 0 // Nuevo parámetro con valor por defecto de 0
+      iaErrorChance = 0
     ) => {
       let chosenIaMove;
       const availableChoices = [...choices];
@@ -340,23 +338,17 @@ export default {
 
       const randomNumber = Math.random();
 
-      // [CAMBIO 2]: Lógica para la habilidad "Desestabilizar"
+      // Lógica para la habilidad "Desestabilizar"
       if (iaErrorChance > 0 && playerChoiceMade) {
-        // Si Desestabilizar está activa y el jugador ha hecho una elección
         if (randomNumber < iaErrorChance) {
-          // La IA comete un error y elige la jugada que pierde contra el jugador
-          if (playerChoiceMade === "rock")
-            chosenIaMove = "scissors"; // Roca pierde contra Tijera
-          else if (playerChoiceMade === "paper")
-            chosenIaMove = "rock"; // Papel pierde contra Roca
-          else if (playerChoiceMade === "scissors") chosenIaMove = "paper"; // Tijera pierde contra Papel
+          if (playerChoiceMade === "rock") chosenIaMove = "scissors";
+          else if (playerChoiceMade === "paper") chosenIaMove = "rock";
+          else if (playerChoiceMade === "scissors") chosenIaMove = "paper";
 
-          // Asegurarse de que el movimiento de error no esté bloqueado
           if (
             currentAbility === "bloqueo" &&
             iaBlockedChoice.value === chosenIaMove
           ) {
-            // Si el movimiento de error está bloqueado, elige al azar de los disponibles
             const alternatives = availableChoices.filter(
               (c) => c !== iaBlockedChoice.value
             );
@@ -364,65 +356,49 @@ export default {
               chosenIaMove =
                 alternatives[Math.floor(Math.random() * alternatives.length)];
             } else {
-              // Si todo está bloqueado (caso muy raro), elige al azar de todas las opciones
               chosenIaMove =
                 choices[Math.floor(Math.random() * choices.length)];
             }
           }
-          return chosenIaMove; // Retorna el movimiento erróneo
+          return chosenIaMove;
         }
       }
 
-      // Lógica de patrón compleja (si ya se determinó un nextPatternMove)
-      if (iaPatternLogic === "complex-pattern" && iaNextPatternMove) {
-        if (availableChoices.includes(iaNextPatternMove)) {
-          chosenIaMove = iaNextPatternMove;
-          iaNextPatternMove = null;
-        }
+      // Lógica de predicción de la IA (solo si iaErrorChance no aplicó)
+      if (randomNumber < actualIaPredictionChance && playerChoiceMade) {
+        if (playerChoiceMade === "rock") chosenIaMove = "paper"; // Gana a rock
+        else if (playerChoiceMade === "paper")
+          chosenIaMove = "scissors"; // Gana a paper
+        else if (playerChoiceMade === "scissors") chosenIaMove = "rock"; // Gana a scissors
       }
 
+      // Si no se predijo, usa la lógica de patrón o aleatoriedad
       if (!chosenIaMove) {
-        // La IA intenta contrarrestar al jugador (basado en actualIaPredictionChance)
-        if (randomNumber < actualIaPredictionChance && playerChoiceMade) {
-          if (playerChoiceMade === "rock") chosenIaMove = "paper";
-          else if (playerChoiceMade === "paper") chosenIaMove = "scissors";
-          else if (playerChoiceMade === "scissors") chosenIaMove = "rock";
+        if (iaPatternLogic === "random") {
+          chosenIaMove =
+            availableChoices[
+              Math.floor(Math.random() * availableChoices.length)
+            ];
+        } else if (iaPatternLogic === "complex-pattern") {
+          // Nueva lógica para "complex-pattern": sesgo sin contrarrestar directamente la última jugada
+          const bias = Math.random();
+          if (bias < 0.5 && availableChoices.includes("paper"))
+            chosenIaMove = "paper";
+          else if (bias < 0.75 && availableChoices.includes("rock"))
+            chosenIaMove = "rock";
+          else if (availableChoices.includes("scissors"))
+            chosenIaMove = "scissors";
+          else
+            chosenIaMove =
+              availableChoices[
+                Math.floor(Math.random() * availableChoices.length)
+              ];
         } else {
-          // Lógica basada en patrones o aleatoriedad
-          if (iaPatternLogic === "random") {
-            chosenIaMove =
-              availableChoices[
-                Math.floor(Math.random() * availableChoices.length)
-              ];
-          } else if (iaPatternLogic === "counter-player" && lastPlayerChoice) {
-            if (lastPlayerChoice === "rock") chosenIaMove = "paper";
-            else if (lastPlayerChoice === "paper") chosenIaMove = "scissors";
-            else if (lastPlayerChoice === "scissors") chosenIaMove = "rock";
-            if (!availableChoices.includes(chosenIaMove)) {
-              chosenIaMove =
-                availableChoices[
-                  Math.floor(Math.random() * availableChoices.length)
-                ];
-            }
-          } else if (iaPatternLogic === "complex-pattern") {
-            const bias = Math.random();
-            if (bias < 0.5 && availableChoices.includes("paper"))
-              chosenIaMove = "paper";
-            else if (bias < 0.75 && availableChoices.includes("rock"))
-              chosenIaMove = "rock";
-            else if (availableChoices.includes("scissors"))
-              chosenIaMove = "scissors";
-            else
-              chosenIaMove =
-                availableChoices[
-                  Math.floor(Math.random() * availableChoices.length)
-                ];
-          } else {
-            chosenIaMove =
-              availableChoices[
-                Math.floor(Math.random() * availableChoices.length)
-              ];
-          }
+          // Fallback, debería ser cubierto por las lógicas anteriores
+          chosenIaMove =
+            availableChoices[
+              Math.floor(Math.random() * availableChoices.length)
+            ];
         }
       }
 
@@ -444,18 +420,11 @@ export default {
         }
       }
 
-      if (iaPatternLogic === "complex-pattern") {
-        if (chosenIaMove === "rock") iaNextPatternMove = "paper";
-        else if (chosenIaMove === "paper") iaNextPatternMove = "scissors";
-        else if (chosenIaMove === "scissors") iaNextPatternMove = "rock";
-      }
-
       return chosenIaMove;
     };
 
     let preChosenIaMove = null;
     const preCalculateIaChoice = () => {
-      // Para el acertijo, no queremos que el pre-cálculo considere el error chance
       preChosenIaMove = getIaChoice(null, null, iaPredictionChance, 0);
     };
 
@@ -468,7 +437,7 @@ export default {
       iaHasChosen.value = false;
       roundLoser.value = null;
 
-      lastPlayerChoice = choice;
+      // Removed assignment to lastPlayerChoice as it's no longer used.
 
       if (activeAbility.value === "desestabilizar") {
         gameMessage.value =
@@ -491,17 +460,14 @@ export default {
 
       if (activeAbility.value === "acertijo") {
         finalIaMove = preChosenIaMove;
-      }
-      // [CAMBIO 3]: Modificar la llamada a getIaChoice cuando Desestabilizar está activa
-      else if (activeAbility.value === "desestabilizar") {
-        // La IA tiene un 75% de probabilidad de cometer el error (elegir la que pierde contra el jugador)
+      } else if (activeAbility.value === "desestabilizar") {
         finalIaMove = getIaChoice(playerChoice.value, null, 0, 0.75);
       } else {
         finalIaMove = getIaChoice(
           playerChoice.value,
           activeAbility.value,
           iaPredictionChance,
-          0 // Asegurarse de que no haya error chance en el juego normal
+          0
         );
       }
 
@@ -619,7 +585,7 @@ export default {
           resetMessageState();
         }, 1500);
       } else if (abilityName === "desestabilizar") {
-        gameMessage.value = `¡Habilidad 'Desestabilizar' activada! La IA tiene una alta probabilidad de equivocarse esta ronda. Elige tu jugada.`; // [CAMBIO 4]: Mensaje actualizado
+        gameMessage.value = `¡Habilidad 'Desestabilizar' activada! La IA tiene una alta probabilidad de equivocarse esta ronda. Elige tu jugada.`;
         messageType.value = "info";
         setTimeout(() => {
           resetMessageState();
@@ -668,7 +634,7 @@ export default {
             "Soy el filo de la decisión, la separación del continuo. Dos caminos que convergen para dividir.",
         },
       };
-      return riddles[iaChoice][difficulty] || "Mmm... ¡Tendrás que adivinar!";
+      return riddles[iaChoice][difficulty] || "Mmm... ¡Tendrás que adivinar!"; // Fix for Prettier
     };
 
     const startTimer = () => {
