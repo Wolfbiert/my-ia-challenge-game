@@ -1,19 +1,28 @@
 <template>
-  <div id="app">
-    <router-view />
-  </div>
+  <div id="app"><router-view /></div>
 </template>
 
 <script>
+import { onMounted } from "vue";
+import useAudio from "./composables/useAudio.js"; // Asegúrate de que la ruta sea correcta
+
 export default {
-  name: "App", // Nombre del componente principal
-  // No necesitamos ninguna lógica específica aquí por ahora
+  name: "App",
+  setup() {
+    const { initBackgroundMusic } = useAudio();
+
+    onMounted(() => {
+      initBackgroundMusic();
+    });
+
+    return {}; // No es necesario devolver nada ya que no hay elementos reactivos en la plantilla
+  },
 };
 </script>
 
 <style>
 /* Estos son estilos globales que afectarán a toda tu aplicación.
-   Puedes ajustarlos o añadir más aquí más adelante. */
+Puedes ajustarlos o añadir más aquí más adelante. */
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;

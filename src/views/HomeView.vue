@@ -56,12 +56,17 @@
     <button @click="startGame" class="start-game-button">
       Comenzar Desafío
     </button>
+
+    <button @click="toggleMusic" class="music-toggle-button">
+      {{ isMusicEnabled ? "Desactivar Música" : "Activar Música" }}
+    </button>
   </div>
 </template>
 
 <script>
 import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router"; // Para navegar entre vistas
+import useAudio from "@/composables/useAudio.js";
 
 export default {
   name: "HomeView",
@@ -69,6 +74,7 @@ export default {
     const router = useRouter(); // Instancia del router
     const selectedDifficulty = ref("facil"); // Dificultad seleccionada por el jugador
     const unlockedDifficulties = ref(["facil"]); // Niveles desbloqueados
+    const { isMusicEnabled, toggleMusic } = useAudio();
 
     const STORAGE_KEY = "iaChallengeGameProgress"; // Clave para localStorage
 
@@ -165,6 +171,8 @@ export default {
       unlockedDifficulties,
       selectDifficulty,
       startGame,
+      isMusicEnabled,
+      toggleMusic,
     };
   },
 };
@@ -298,5 +306,22 @@ h1 {
 .start-game-button:active {
   transform: translateY(0);
   box-shadow: 0 5px 10px rgba(40, 167, 69, 0.2);
+}
+
+/* NUEVOS ESTILOS PARA EL BOTÓN DE MÚSICA */
+.music-toggle-button {
+  margin-top: 20px;
+  padding: 10px 20px;
+  font-size: 1em;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.music-toggle-button:hover {
+  background-color: #5a6268;
 }
 </style>

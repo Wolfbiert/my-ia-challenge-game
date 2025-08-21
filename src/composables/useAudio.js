@@ -11,7 +11,7 @@ let bgmInstance = null;
 const initBackgroundMusic = () => {
   if (!bgmInstance) {
     bgmInstance = new Howl({
-      src: [""],
+      src: ["/sounds/Mechanical.mp3"],
       html5: true,
       loop: true,
       volume: 0.3,
