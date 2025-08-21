@@ -1,10 +1,17 @@
 <template>
-  <div id="app"><router-view /></div>
+  <div id="app">
+    <video autoplay muted loop id="background-video">
+      <source src="/videos/background.mp4" type="video/mp4" />
+      Tu navegador no soporta el video de fondo.
+    </video>
+
+    <router-view />
+  </div>
 </template>
 
 <script>
 import { onMounted } from "vue";
-import useAudio from "./composables/useAudio.js"; // Asegúrate de que la ruta sea correcta
+import useAudio from "./composables/useAudio.js";
 
 export default {
   name: "App",
@@ -15,27 +22,38 @@ export default {
       initBackgroundMusic();
     });
 
-    return {}; // No es necesario devolver nada ya que no hay elementos reactivos en la plantilla
+    return {};
   },
 };
 </script>
 
 <style>
-/* Estos son estilos globales que afectarán a toda tu aplicación.
-Puedes ajustarlos o añadir más aquí más adelante. */
+/* 2. Estilos globales de la app */
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center; /* Centra el texto de forma global */
-  color: #2c3e50; /* Color de texto por defecto */
-  margin-top: 60px; /* Esto puede mover tu contenido hacia abajo, puedes quitarlo si quieres */
+  text-align: center;
+  color: #2c3e50;
+  margin-top: 60px;
 }
 
-/* Puedes añadir más estilos globales aquí */
 body {
   margin: 0;
   padding: 0;
-  background-color: #f0f0f0; /* Un color de fondo suave para empezar */
+  background-color: #f0f0f0;
+}
+
+/* 3. Estilos para el video de fondo */
+#background-video {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  z-index: -100;
+  background-size: cover;
 }
 </style>

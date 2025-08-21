@@ -185,25 +185,20 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(
-    135deg,
-    #f0f4f8,
-    #d9e2ec
-  ); /* Fondo degradado suave */
-  color: #333;
+  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
   font-family: "Arial", sans-serif;
   padding: 20px;
 }
 
 h1 {
   font-size: 3.5em;
-  color: #2c3e50;
+  color: #ffffff;
   margin-bottom: 40px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .difficulty-selection {
-  background-color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
   padding: 30px 40px;
   border-radius: 15px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
@@ -213,7 +208,7 @@ h1 {
 
 .difficulty-selection h2 {
   font-size: 1.8em;
-  color: #34495e;
+  color: #ffffff;
   margin-bottom: 25px;
 }
 
@@ -287,20 +282,20 @@ h1 {
   padding: 18px 45px;
   font-size: 1.8em;
   font-weight: bold;
-  background-color: #28a745; /* Verde vibrante */
+  background-color: rgba(0, 0, 0, 0.7); /* Negro semi-transparente */
   color: white;
   border: none;
   border-radius: 50px;
   cursor: pointer;
-  box-shadow: 0 8px 15px rgba(40, 167, 69, 0.3);
+  box-shadow: 0 12px 20px rgba(255, 255, 255, 0.4);
   transition: background-color 0.3s ease, transform 0.2s ease,
     box-shadow 0.3s ease;
 }
 
 .start-game-button:hover {
-  background-color: #218838;
+  background-color: rgba(0, 0, 0, 1); /* Negro semi-transparente */
   transform: translateY(-5px);
-  box-shadow: 0 12px 20px rgba(40, 167, 69, 0.4);
+  box-shadow: 0 12px 20px rgba(255, 255, 255, 0.4);
 }
 
 .start-game-button:active {

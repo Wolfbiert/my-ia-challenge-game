@@ -284,7 +284,7 @@ export default {
 
 .minigame-area {
   flex-grow: 2;
-  background-color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
   border: 2px solid #42b983;
   border-radius: 15px;
   padding: 30px;
@@ -310,7 +310,7 @@ export default {
 }
 
 .scoreboard {
-  background-color: #f8f8f8;
+  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
   border: 1px solid #ddd;
   border-radius: 10px;
   padding: 15px;
@@ -319,7 +319,7 @@ export default {
 }
 
 .ia-display {
-  background-color: #f0f0f0;
+  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
   border: 1px solid #ccc;
   border-radius: 10px;
   padding: 15px;
@@ -336,11 +336,11 @@ export default {
 
 h2,
 h3 {
-  color: #333;
+  color: #ffffff;
   margin-bottom: 10px;
 }
 p {
-  color: #555;
+  color: #ffffff;
 }
 
 .action-button {
