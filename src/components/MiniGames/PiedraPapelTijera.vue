@@ -22,38 +22,66 @@
         v-if="gameState === 'playerChoice' && !gameFinished"
       >
         <h3>Tus Habilidades (1 uso c/u)</h3>
+
         <button
           @click="useAbility('desestabilizar')"
-          :disabled="abilitiesUsed.desestabilizar"
-          :class="{ 'used-ability': abilitiesUsed.desestabilizar }"
+          :disabled="
+            abilitiesUsed.desestabilizar ||
+            blockedPlayerAbility === 'desestabilizar'
+          "
+          :class="{
+            'used-ability': abilitiesUsed.desestabilizar,
+            'is-blocked': blockedPlayerAbility === 'desestabilizar',
+          }"
         >
           Desestabilizar
         </button>
+
         <button
           @click="useAbility('bloqueo', 'rock')"
-          :disabled="abilitiesUsed.bloqueo"
-          :class="{ 'used-ability': abilitiesUsed.bloqueo }"
+          :disabled="
+            abilitiesUsed.bloqueo || blockedPlayerAbility === 'bloqueo'
+          "
+          :class="{
+            'used-ability': abilitiesUsed.bloqueo,
+            'is-blocked': blockedPlayerAbility === 'bloqueo',
+          }"
         >
           Bloquear Piedra
         </button>
         <button
           @click="useAbility('bloqueo', 'paper')"
-          :disabled="abilitiesUsed.bloqueo"
-          :class="{ 'used-ability': abilitiesUsed.bloqueo }"
+          :disabled="
+            abilitiesUsed.bloqueo || blockedPlayerAbility === 'bloqueo'
+          "
+          :class="{
+            'used-ability': abilitiesUsed.bloqueo,
+            'is-blocked': blockedPlayerAbility === 'bloqueo',
+          }"
         >
           Bloquear Papel
         </button>
         <button
           @click="useAbility('bloqueo', 'scissors')"
-          :disabled="abilitiesUsed.bloqueo"
-          :class="{ 'used-ability': abilitiesUsed.bloqueo }"
+          :disabled="
+            abilitiesUsed.bloqueo || blockedPlayerAbility === 'bloqueo'
+          "
+          :class="{
+            'used-ability': abilitiesUsed.bloqueo,
+            'is-blocked': blockedPlayerAbility === 'bloqueo',
+          }"
         >
           Bloquear Tijera
         </button>
         <button
           @click="useAbility('acertijo')"
-          :disabled="abilitiesUsed.acertijo"
-          :class="{ 'used-ability': abilitiesUsed.acertijo }"
+          :disabled="
+            abilitiesUsed.acertijo || blockedPlayerAbility === 'acertijo'
+          "
+          :class="{
+            'used-ability': abilitiesUsed.acertijo,
+            'is-blocked': blockedPlayerAbility === 'acertijo',
+          }"
         >
           Acertijo
         </button>
@@ -188,6 +216,7 @@
 <script>
 import { ref, onMounted, watch, nextTick } from "vue";
 import { Howl } from "howler";
+import useGameOrchestrator from "@/composables/useGameOrchestrator.js";
 
 export default {
   name: "PiedraPapelTijera",
@@ -232,13 +261,33 @@ export default {
     });
     const activeAbility = ref(null);
     const iaBlockedChoice = ref(null);
-    const abilityUsedThisRound = ref(false);
+    const abilityUsedThisRound = ref(false); // NUEVAS VARIABLES Y LÓGICA
+    const { aiGameModifiers, decideAndApplyAiModifiers } =
+      useGameOrchestrator();
 
+    const blockedPlayerAbility = ref(null);
+
+    watch(
+      () => aiGameModifiers.value,
+      (newModifiers) => {
+        if (newModifiers.blockPlayerAbility) {
+          const possibleAbilities = ["desestabilizar", "bloqueo", "acertijo"];
+          const abilityToBlock =
+            possibleAbilities[
+              Math.floor(Math.random() * possibleAbilities.length)
+            ];
+          blockedPlayerAbility.value = abilityToBlock;
+        } else {
+          blockedPlayerAbility.value = null; // Asegura que se reinicie
+        }
+      },
+      { immediate: true, deep: true }
+    ); // FIN NUEVAS VARIABLES Y LÓGICA
     const timeRemaining = ref(0);
     const timeBarWidth = ref(100);
     let timerInterval = null;
     let maxTimePerRound = 0;
-    const riddleActive = ref(false); // Cambiado a booleano para mayor claridad
+    const riddleActive = ref(false);
 
     const explosionSound = new Howl({
       src: ["/sounds/explosion.mp3"],
@@ -252,28 +301,26 @@ export default {
     let iaPredictionChance = 0;
     let iaThinkingDuration = 0;
     let iaPatternLogic = "random";
-    // Removed 'iaNextPatternMove' as it's no longer used.
-    // Removed 'lastPlayerChoice' as it's no longer used in current logic.
 
     const setGameParameters = (difficulty) => {
       switch (difficulty) {
         case "facil":
-          iaPredictionChance = 0; // IA no predice
+          iaPredictionChance = 0;
           iaThinkingDuration = 2000;
           maxTimePerRound = 120 * 1000;
-          iaPatternLogic = "random"; // IA puramente aleatoria
+          iaPatternLogic = "random";
           break;
         case "normal":
-          iaPredictionChance = 0; // IA no predice
+          iaPredictionChance = 0;
           iaThinkingDuration = 3000;
           maxTimePerRound = 60 * 1000;
-          iaPatternLogic = "random"; // IA puramente aleatoria (ya no "counter-player")
+          iaPatternLogic = "random";
           break;
         case "dificil":
-          iaPredictionChance = 0.3; // IA predice el 30% de las veces
+          iaPredictionChance = 0.3;
           iaThinkingDuration = 3500;
           maxTimePerRound = 30 * 1000;
-          iaPatternLogic = "complex-pattern"; // Lógica de patrón más sutil
+          iaPatternLogic = "complex-pattern";
           break;
       }
     };
@@ -310,7 +357,14 @@ export default {
       riddleActive.value = false;
       abilityUsedThisRound.value = false;
 
-      setGameParameters(props.difficulty);
+      setGameParameters(props.difficulty); // NUEVA LÍNEA PARA REINICIAR LA HABILIDAD BLOQUEADA
+      blockedPlayerAbility.value = null; // NUEVA LÍNEA para llamar al orquestador
+
+      decideAndApplyAiModifiers(
+        "PiedraPapelTijera",
+        playerWins.value,
+        iaWins.value
+      );
 
       if (iaThinkingInterval) {
         clearInterval(iaThinkingInterval);
@@ -326,9 +380,8 @@ export default {
       iaErrorChance = 0
     ) => {
       let chosenIaMove;
-      const availableChoices = [...choices];
+      const availableChoices = [...choices]; // Aplicar habilidad "Bloqueo"
 
-      // Aplicar habilidad "Bloqueo"
       if (currentAbility === "bloqueo" && iaBlockedChoice.value) {
         const indexToRemove = availableChoices.indexOf(iaBlockedChoice.value);
         if (indexToRemove > -1) {
@@ -336,9 +389,8 @@ export default {
         }
       }
 
-      const randomNumber = Math.random();
+      const randomNumber = Math.random(); // Lógica para la habilidad "Desestabilizar"
 
-      // Lógica para la habilidad "Desestabilizar"
       if (iaErrorChance > 0 && playerChoiceMade) {
         if (randomNumber < iaErrorChance) {
           if (playerChoiceMade === "rock") chosenIaMove = "scissors";
@@ -362,17 +414,14 @@ export default {
           }
           return chosenIaMove;
         }
-      }
+      } // Lógica de predicción de la IA (solo si iaErrorChance no aplicó)
 
-      // Lógica de predicción de la IA (solo si iaErrorChance no aplicó)
       if (randomNumber < actualIaPredictionChance && playerChoiceMade) {
-        if (playerChoiceMade === "rock") chosenIaMove = "paper"; // Gana a rock
-        else if (playerChoiceMade === "paper")
-          chosenIaMove = "scissors"; // Gana a paper
-        else if (playerChoiceMade === "scissors") chosenIaMove = "rock"; // Gana a scissors
-      }
+        if (playerChoiceMade === "rock") chosenIaMove = "paper";
+        else if (playerChoiceMade === "paper") chosenIaMove = "scissors";
+        else if (playerChoiceMade === "scissors") chosenIaMove = "rock";
+      } // Si no se predijo, usa la lógica de patrón o aleatoriedad
 
-      // Si no se predijo, usa la lógica de patrón o aleatoriedad
       if (!chosenIaMove) {
         if (iaPatternLogic === "random") {
           chosenIaMove =
@@ -380,7 +429,6 @@ export default {
               Math.floor(Math.random() * availableChoices.length)
             ];
         } else if (iaPatternLogic === "complex-pattern") {
-          // Nueva lógica para "complex-pattern": sesgo sin contrarrestar directamente la última jugada
           const bias = Math.random();
           if (bias < 0.5 && availableChoices.includes("paper"))
             chosenIaMove = "paper";
@@ -394,7 +442,6 @@ export default {
                 Math.floor(Math.random() * availableChoices.length)
               ];
         } else {
-          // Fallback, debería ser cubierto por las lógicas anteriores
           chosenIaMove =
             availableChoices[
               Math.floor(Math.random() * availableChoices.length)
@@ -402,7 +449,6 @@ export default {
         }
       }
 
-      // Doble chequeo por si la IA elige la opción bloqueada
       if (
         currentAbility === "bloqueo" &&
         chosenIaMove === iaBlockedChoice.value
@@ -436,8 +482,6 @@ export default {
       showExplosion.value = false;
       iaHasChosen.value = false;
       roundLoser.value = null;
-
-      // Removed assignment to lastPlayerChoice as it's no longer used.
 
       if (activeAbility.value === "desestabilizar") {
         gameMessage.value =
@@ -551,6 +595,15 @@ export default {
     };
 
     const useAbility = (abilityName, blockedChoice = null) => {
+      // NUEVA LÍNEA para verificar si la habilidad está bloqueada por la IA
+      if (blockedPlayerAbility.value === abilityName) {
+        gameMessage.value = `¡Habilidad "${abilityName}" está bloqueada por la IA esta ronda!`;
+        messageType.value = "error";
+        setTimeout(() => {
+          resetMessageState();
+        }, 2000);
+        return;
+      } // FIN DE LA NUEVA LÍNEA
       if (abilityUsedThisRound.value) {
         gameMessage.value = "Ya has usado una habilidad en esta ronda.";
         messageType.value = "warning";
@@ -634,7 +687,7 @@ export default {
             "Soy el filo de la decisión, la separación del continuo. Dos caminos que convergen para dividir.",
         },
       };
-      return riddles[iaChoice][difficulty] || "Mmm... ¡Tendrás que adivinar!"; // Fix for Prettier
+      return riddles[iaChoice][difficulty] || "Mmm... ¡Tendrás que adivinar!";
     };
 
     const startTimer = () => {
@@ -702,6 +755,7 @@ export default {
       timeRemaining,
       timeBarWidth,
       riddleActive,
+      blockedPlayerAbility, // NUEVA LÍNEA en el return
       playRound,
       startGame,
       useAbility,
@@ -1154,5 +1208,18 @@ h2 {
 }
 .reset-button:hover {
   background-color: #0056b3;
+}
+
+.is-blocked {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(100%);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.is-blocked:hover {
+  background-color: var(--color-background-soft);
+  color: var(--color-text);
+  transform: none;
 }
 </style>

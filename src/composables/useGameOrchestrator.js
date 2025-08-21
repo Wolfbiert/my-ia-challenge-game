@@ -119,9 +119,29 @@ const modifierProbabilities = {
   },
   // --- Probabilidades para Piedra, Papel o Tijera (ejemplo futuro) ---
   PiedraPapelTijera: {
-    facil: {},
-    normal: {},
-    dificil: {},
+    facil: {
+      // Sin intervención agresiva. La IA no bloquea habilidades en fácil.
+    },
+    normal: {
+      blockPlayerAbility: {
+        chance: 0.25, // 25% de probabilidad de bloquear una habilidad
+        value: "random", // Indica que se bloqueará una habilidad aleatoria
+        message:
+          "¡Humano! ¡Mi influencia bloquea una de tus habilidades esta ronda!",
+        expression: "thinking",
+        intervene: true,
+      },
+    },
+    dificil: {
+      blockPlayerAbility: {
+        chance: 0.4, // 40% de probabilidad de bloquear una habilidad
+        value: "random", // Bloquea una habilidad aleatoria
+        message:
+          "¡Mis circuitos están activos! ¡Una de tus ventajas ha sido anulada!",
+        expression: "angry",
+        intervene: true,
+      },
+    },
   },
   // --- NUEVO: Probabilidades para Simon Dice ---
   SimonDice: {
