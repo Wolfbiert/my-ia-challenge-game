@@ -1,9 +1,6 @@
 <template>
   <div class="simon-dice-game-container">
     <h2>Simón Dice</h2>
-    <p class="round-info">Ronda Interna: {{ currentSimonRound }}</p>
-    <p class="game-message" :class="messageType">{{ gameMessage }}</p>
-
     <div
       class="simon-buttons-grid"
       :class="{ 'sequence-playing': isShowingSequence }"
@@ -39,10 +36,11 @@
 
 <script>
 import { ref, onMounted, watch, markRaw } from "vue";
+import { Howl } from "howler"; // Importar Howl para los sonidos
 
 export default {
   name: "SimonDice",
-  emits: ["round-finished"],
+  emits: ["round-finished", "update-ia-message"],
   props: {
     difficulty: {
       type: String,
@@ -61,8 +59,18 @@ export default {
     let roundsToWinSimon = 0;
     const lightDuration = ref(0);
     const pauseBetweenLights = ref(0);
-
     const nonRepeatingSequenceActive = ref(false);
+
+    // Sonidos con Howl
+    const soundMap = markRaw({
+      red: new Howl({ src: [process.env.BASE_URL + "sounds/red.mp3"] }),
+      blue: new Howl({ src: [process.env.BASE_URL + "sounds/blue.mp3"] }),
+      green: new Howl({ src: [process.env.BASE_URL + "sounds/green.mp3"] }),
+      yellow: new Howl({ src: [process.env.BASE_URL + "sounds/yellow.mp3"] }),
+      // Añadir sonidos de error y victoria si los tienes
+      win: new Howl({ src: [process.env.BASE_URL + "sounds/win.mp3"] }),
+      lose: new Howl({ src: [process.env.BASE_URL + "sounds/lose.mp3"] }),
+    });
 
     const setGameParametersInternal = (difficulty, modifiers = {}) => {
       let baseInitialSequenceLength,
@@ -137,31 +145,14 @@ export default {
       roundsToWinSimon = baseRoundsToWin;
       lightDuration.value = actualLightDuration;
       pauseBetweenLights.value = actualPauseBetweenLights;
-
       nonRepeatingSequenceActive.value =
         modifiers.nonRepeatingSequence || false;
     };
 
-    const audioMap = markRaw({
-      red: new Audio(process.env.BASE_URL + "sounds/red.mp3"),
-      blue: new Audio(process.env.BASE_URL + "sounds/blue.mp3"),
-      green: new Audio(process.env.BASE_URL + "sounds/green.mp3"),
-      yellow: new Audio(process.env.BASE_URL + "sounds/yellow.mp3"),
-    });
-
-    const playSound = (color) => {
-      if (audioMap[color]) {
-        audioMap[color].currentTime = 0;
-        audioMap[color]
-          .play()
-          .catch((e) => console.error("Error al reproducir audio:", e));
-      }
-    };
-
     const gameStarted = ref(false);
     const gameOver = ref(false);
-    const gameMessage = ref('Presiona "¡Empezar!" para jugar.');
-    const messageType = ref("info");
+    // const gameMessage = ref('Presiona "¡Empezar!" para jugar.'); <-- ELIMINADO
+    // const messageType = ref("info"); <-- ELIMINADO
 
     const sequence = ref([]);
     const playerSequence = ref([]);
@@ -192,15 +183,17 @@ export default {
     const showSequence = async () => {
       isShowingSequence.value = true;
       isPlayerTurn.value = false;
-      gameMessage.value = "¡Memoriza la secuencia!";
-      messageType.value = "info";
-      playerSequence.value = [];
+      emit(
+        "update-ia-message",
+        `Ronda ${currentSimonRound.value}. ¡Memoriza la secuencia!`,
+        "thinking"
+      ); // <-- MODIFICADO
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       for (let i = 0; i < sequence.value.length; i++) {
         activeLight.value = sequence.value[i];
-        playSound(sequence.value[i]);
+        soundMap[sequence.value[i]].play(); // Usar Howl para reproducir el sonido
         await new Promise((resolve) =>
           setTimeout(resolve, lightDuration.value)
         );
@@ -212,8 +205,7 @@ export default {
 
       isShowingSequence.value = false;
       isPlayerTurn.value = true;
-      gameMessage.value = "¡Tu turno! Repite la secuencia.";
-      messageType.value = "info";
+      emit("update-ia-message", "¡Tu turno! Repite la secuencia.", "happy"); // <-- MODIFICADO
     };
 
     const handlePlayerClick = (index) => {
@@ -222,7 +214,7 @@ export default {
 
       const clickedColor = colors[index];
       playerSequence.value.push(clickedColor);
-      playSound(clickedColor);
+      soundMap[clickedColor].play(); // Usar Howl para el sonido del clic
 
       const originalLight = activeLight.value;
       activeLight.value = clickedColor;
@@ -234,8 +226,12 @@ export default {
         playerSequence.value[playerSequence.value.length - 1] !==
         sequence.value[playerSequence.value.length - 1]
       ) {
-        gameMessage.value = `¡Secuencia incorrecta! Perdiste el mini-juego en la ronda ${currentSimonRound.value}.`;
-        messageType.value = "error";
+        emit(
+          "update-ia-message",
+          `¡Secuencia incorrecta! Perdiste en la ronda ${currentSimonRound.value}.`,
+          "sad"
+        ); // <-- MODIFICADO
+        soundMap.lose.play();
         gameOver.value = true;
         isPlayerTurn.value = false;
         emit("round-finished", { winner: "ia" });
@@ -243,14 +239,22 @@ export default {
       }
 
       if (playerSequence.value.length === sequence.value.length) {
-        gameMessage.value = "¡Correcto! Preparando la siguiente ronda...";
-        messageType.value = "success";
+        emit(
+          "update-ia-message",
+          "¡Correcto! Preparando la siguiente ronda...",
+          "normal"
+        ); // <-- MODIFICADO
         isPlayerTurn.value = false;
 
         setTimeout(() => {
           currentSimonRound.value++;
           if (currentSimonRound.value > roundsToWinSimon) {
-            gameMessage.value = "¡Has completado el desafío de Simón Dice!";
+            emit(
+              "update-ia-message",
+              "¡Has completado el desafío de Simón Dice!",
+              "happy"
+            ); // <-- MODIFICADO
+            soundMap.win.play();
             gameOver.value = true;
             emit("round-finished", { winner: "player" });
           } else {
@@ -265,6 +269,7 @@ export default {
       gameStarted.value = true;
       gameOver.value = false;
       currentSimonRound.value = 1;
+      emit("update-ia-message", "El juego ha comenzado. ¡Prepárate!", "happy"); // <-- MODIFICADO
 
       setGameParametersInternal(props.difficulty, props.aiModifiers);
 
@@ -284,8 +289,7 @@ export default {
     const resetGame = () => {
       gameStarted.value = false;
       gameOver.value = false;
-      gameMessage.value = 'Presiona "¡Empezar!" para jugar.';
-      messageType.value = "info";
+      emit("update-ia-message", 'Presiona "¡Empezar!" para jugar.', "normal"); // <-- MODIFICADO
       currentSimonRound.value = 1;
       sequence.value = [];
       playerSequence.value = [];
@@ -303,7 +307,6 @@ export default {
     watch(
       () => [props.difficulty, props.aiModifiers],
       ([newDifficulty, newModifiers]) => {
-        // Removed oldDifficulty, oldModifiers
         const wasGameStarted = gameStarted.value;
         const wasGameOver = gameOver.value;
 
@@ -323,8 +326,8 @@ export default {
       colors,
       gameStarted,
       gameOver,
-      gameMessage,
-      messageType,
+      // gameMessage, <-- ELIMINADO
+      // messageType, <-- ELIMINADO
       sequence,
       playerSequence,
       isShowingSequence,

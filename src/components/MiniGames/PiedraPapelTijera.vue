@@ -7,8 +7,6 @@
       <p>Tú: {{ playerWins }} | IA: {{ iaWins }}</p>
     </div>
 
-    <p class="game-message" :class="messageType">{{ gameMessage }}</p>
-
     <div
       v-if="gameState === 'playerChoice' && !gameFinished"
       class="time-bar-container"
@@ -203,10 +201,6 @@
       </div>
     </div>
 
-    <p v-if="gameFinished" class="result-message" :class="messageType">
-      {{ gameMessage }}
-    </p>
-
     <button v-if="gameFinished" @click="startGame" class="reset-button">
       Jugar de Nuevo
     </button>
@@ -220,7 +214,7 @@ import useGameOrchestrator from "@/composables/useGameOrchestrator.js";
 
 export default {
   name: "PiedraPapelTijera",
-  emits: ["round-finished"],
+  emits: ["round-finished", "update-ia-message"], // <-- AÑADIDO
   props: {
     difficulty: {
       type: String,
@@ -236,8 +230,8 @@ export default {
     const playerChoice = ref(null);
     const iaChoice = ref(null);
     const result = ref("");
-    const gameMessage = ref("Elige tu jugada...");
-    const messageType = ref("info");
+    // const gameMessage = ref("Elige tu jugada..."); <-- ELIMINADO
+    // const messageType = ref("info"); <-- ELIMINADO
     const choices = ["rock", "paper", "scissors"];
 
     const gameState = ref("playerChoice");
@@ -261,7 +255,7 @@ export default {
     });
     const activeAbility = ref(null);
     const iaBlockedChoice = ref(null);
-    const abilityUsedThisRound = ref(false); // NUEVAS VARIABLES Y LÓGICA
+    const abilityUsedThisRound = ref(false);
     const { aiGameModifiers, decideAndApplyAiModifiers } =
       useGameOrchestrator();
 
@@ -278,11 +272,11 @@ export default {
             ];
           blockedPlayerAbility.value = abilityToBlock;
         } else {
-          blockedPlayerAbility.value = null; // Asegura que se reinicie
+          blockedPlayerAbility.value = null;
         }
       },
       { immediate: true, deep: true }
-    ); // FIN NUEVAS VARIABLES Y LÓGICA
+    );
     const timeRemaining = ref(0);
     const timeBarWidth = ref(100);
     let timerInterval = null;
@@ -345,8 +339,8 @@ export default {
       playerChoice.value = null;
       iaChoice.value = null;
       result.value = "";
-      gameMessage.value = `Ronda ${currentRound.value} de ${totalRounds}. Elige tu jugada...`;
-      messageType.value = "info";
+      // gameMessage.value = `Ronda ${currentRound.value} de ${totalRounds}. Elige tu jugada...`; <-- ELIMINADO
+      // messageType.value = "info"; <-- ELIMINADO
       gameState.value = "playerChoice";
       iaThinkingDisplayChoice.value = null;
       iaHasChosen.value = false;
@@ -357,8 +351,8 @@ export default {
       riddleActive.value = false;
       abilityUsedThisRound.value = false;
 
-      setGameParameters(props.difficulty); // NUEVA LÍNEA PARA REINICIAR LA HABILIDAD BLOQUEADA
-      blockedPlayerAbility.value = null; // NUEVA LÍNEA para llamar al orquestador
+      setGameParameters(props.difficulty);
+      blockedPlayerAbility.value = null;
 
       decideAndApplyAiModifiers(
         "PiedraPapelTijera",
@@ -380,7 +374,7 @@ export default {
       iaErrorChance = 0
     ) => {
       let chosenIaMove;
-      const availableChoices = [...choices]; // Aplicar habilidad "Bloqueo"
+      const availableChoices = [...choices];
 
       if (currentAbility === "bloqueo" && iaBlockedChoice.value) {
         const indexToRemove = availableChoices.indexOf(iaBlockedChoice.value);
@@ -389,7 +383,7 @@ export default {
         }
       }
 
-      const randomNumber = Math.random(); // Lógica para la habilidad "Desestabilizar"
+      const randomNumber = Math.random();
 
       if (iaErrorChance > 0 && playerChoiceMade) {
         if (randomNumber < iaErrorChance) {
@@ -414,13 +408,13 @@ export default {
           }
           return chosenIaMove;
         }
-      } // Lógica de predicción de la IA (solo si iaErrorChance no aplicó)
+      }
 
       if (randomNumber < actualIaPredictionChance && playerChoiceMade) {
         if (playerChoiceMade === "rock") chosenIaMove = "paper";
         else if (playerChoiceMade === "paper") chosenIaMove = "scissors";
         else if (playerChoiceMade === "scissors") chosenIaMove = "rock";
-      } // Si no se predijo, usa la lógica de patrón o aleatoriedad
+      }
 
       if (!chosenIaMove) {
         if (iaPatternLogic === "random") {
@@ -477,18 +471,25 @@ export default {
     const playRound = async (choice) => {
       stopTimer();
       playerChoice.value = choice;
-      gameMessage.value = `Tú elegiste: ${choice}...`;
+      emit("update-ia-message", `Tú elegiste: ${choice}...`, "thinking"); // <-- MODIFICADO
       gameState.value = "iaThinking";
       showExplosion.value = false;
       iaHasChosen.value = false;
       roundLoser.value = null;
 
       if (activeAbility.value === "desestabilizar") {
-        gameMessage.value =
-          "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...";
+        emit(
+          "update-ia-message",
+          "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...",
+          "sad"
+        ); // <-- MODIFICADO
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } else if (activeAbility.value === "bloqueo") {
-        gameMessage.value = `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`;
+        emit(
+          "update-ia-message",
+          `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`,
+          "angry"
+        ); // <-- MODIFICADO
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
@@ -524,7 +525,8 @@ export default {
       let roundWinner;
       if (playerChoice.value === iaChoice.value) {
         result.value = "¡Empate!";
-        messageType.value = "info";
+        // messageType.value = "info"; <-- ELIMINADO
+        emit("update-ia-message", "¡Empate! Un digno rival.", "normal"); // <-- AÑADIDO
         roundWinner = "draw";
         roundLoser.value = null;
       } else if (
@@ -533,13 +535,15 @@ export default {
         (playerChoice.value === "scissors" && iaChoice.value === "paper")
       ) {
         result.value = "¡Ganaste esta ronda!";
-        messageType.value = "success";
+        // messageType.value = "success"; <-- ELIMINADO
+        emit("update-ia-message", "¡Ganaste esta ronda! ¡Maldición!", "sad"); // <-- AÑADIDO
         roundWinner = "player";
         roundLoser.value = "ia";
         playerWins.value++;
       } else {
         result.value = "¡Perdiste esta ronda!";
-        messageType.value = "error";
+        // messageType.value = "error"; <-- ELIMINADO
+        emit("update-ia-message", "¡Perdiste! ¡Gané esta vez!", "happy"); // <-- AÑADIDO
         roundWinner = "ia";
         roundLoser.value = "player";
         iaWins.value++;
@@ -569,15 +573,23 @@ export default {
       riddleActive.value = false;
 
       if (playerWins.value === Math.ceil(totalRounds / 2)) {
-        gameMessage.value =
-          "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!";
-        messageType.value = "success";
+        // gameMessage.value = "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!"; <-- ELIMINADO
+        // messageType.value = "success"; <-- ELIMINADO
+        emit(
+          "update-ia-message",
+          "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!",
+          "happy"
+        ); // <-- AÑADIDO
         gameFinished.value = true;
         emit("round-finished", { winner: "player", score: playerWins.value });
       } else if (iaWins.value === Math.ceil(totalRounds / 2)) {
-        gameMessage.value =
-          "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera.";
-        messageType.value = "error";
+        // gameMessage.value = "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera."; <-- ELIMINADO
+        // messageType.value = "error"; <-- ELIMINADO
+        emit(
+          "update-ia-message",
+          "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera.",
+          "angry"
+        ); // <-- AÑADIDO
         gameFinished.value = true;
         emit("round-finished", { winner: "ia", score: iaWins.value });
       } else {
@@ -586,8 +598,12 @@ export default {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           resetRound();
         } else {
-          gameMessage.value =
-            "¡Fin del juego! Resultado final. Puedes jugar de nuevo.";
+          // gameMessage.value = "¡Fin del juego! Resultado final. Puedes jugar de nuevo."; <-- ELIMINADO
+          emit(
+            "update-ia-message",
+            "¡Fin del juego! Resultado final. Puedes jugar de nuevo.",
+            "normal"
+          ); // <-- AÑADIDO
           gameFinished.value = true;
           emit("round-finished", { winner: "draw", score: playerWins.value });
         }
@@ -597,19 +613,19 @@ export default {
     const useAbility = (abilityName, blockedChoice = null) => {
       // NUEVA LÍNEA para verificar si la habilidad está bloqueada por la IA
       if (blockedPlayerAbility.value === abilityName) {
-        gameMessage.value = `¡Habilidad "${abilityName}" está bloqueada por la IA esta ronda!`;
-        messageType.value = "error";
-        setTimeout(() => {
-          resetMessageState();
-        }, 2000);
+        emit(
+          "update-ia-message",
+          `¡Habilidad "${abilityName}" está bloqueada por la IA esta ronda!`,
+          "angry"
+        ); // <-- MODIFICADO
         return;
-      } // FIN DE LA NUEVA LÍNEA
+      }
       if (abilityUsedThisRound.value) {
-        gameMessage.value = "Ya has usado una habilidad en esta ronda.";
-        messageType.value = "warning";
-        setTimeout(() => {
-          resetMessageState();
-        }, 2000);
+        emit(
+          "update-ia-message",
+          "Ya has usado una habilidad en esta ronda.",
+          "sad"
+        ); // <-- MODIFICADO
         return;
       }
 
@@ -617,11 +633,11 @@ export default {
         abilitiesUsed.value[abilityName] ||
         gameState.value !== "playerChoice"
       ) {
-        gameMessage.value = `Ya usaste la habilidad "${abilityName}" o no es el momento.`;
-        messageType.value = "warning";
-        setTimeout(() => {
-          resetMessageState();
-        }, 2000);
+        emit(
+          "update-ia-message",
+          `Ya usaste la habilidad "${abilityName}" o no es el momento.`,
+          "sad"
+        ); // <-- MODIFICADO
         return;
       }
 
@@ -632,36 +648,34 @@ export default {
 
       if (abilityName === "bloqueo") {
         iaBlockedChoice.value = blockedChoice;
-        gameMessage.value = `¡Habilidad 'Bloqueo' activada! La IA no podrá usar ${blockedChoice} esta ronda. Elige tu jugada.`;
-        messageType.value = "info";
-        setTimeout(() => {
-          resetMessageState();
-        }, 1500);
+        emit(
+          "update-ia-message",
+          `¡Habilidad 'Bloqueo' activada! La IA no podrá usar ${blockedChoice} esta ronda. Elige tu jugada.`,
+          "thinking"
+        ); // <-- MODIFICADO
       } else if (abilityName === "desestabilizar") {
-        gameMessage.value = `¡Habilidad 'Desestabilizar' activada! La IA tiene una alta probabilidad de equivocarse esta ronda. Elige tu jugada.`;
-        messageType.value = "info";
-        setTimeout(() => {
-          resetMessageState();
-        }, 1500);
+        emit(
+          "update-ia-message",
+          `¡Habilidad 'Desestabilizar' activada! La IA tiene una alta probabilidad de equivocarse esta ronda. Elige tu jugada.`,
+          "thinking"
+        ); // <-- MODIFICADO
       } else if (abilityName === "acertijo") {
         const riddle = getRiddle(preChosenIaMove, props.difficulty);
-        gameMessage.value = `Acertijo de la IA: "${riddle}"`;
-        messageType.value = "warning";
+        emit("update-ia-message", `Acertijo de la IA: "${riddle}"`, "thinking"); // <-- MODIFICADO
         riddleActive.value = true;
       }
     };
 
-    const resetMessageState = () => {
-      if (riddleActive.value) return;
-
-      if (
-        !activeAbility.value ||
-        (activeAbility.value === "acertijo" && !riddleActive.value)
-      ) {
-        gameMessage.value = "Elige tu jugada...";
-        messageType.value = "info";
-      }
-    };
+    // const resetMessageState = () => { <-- ELIMINADO
+    //   if (riddleActive.value) return;
+    //   if (
+    //     !activeAbility.value ||
+    //     (activeAbility.value === "acertijo" && !riddleActive.value)
+    //   ) {
+    //     gameMessage.value = "Elige tu jugada...";
+    //     messageType.value = "info";
+    //   }
+    // };
 
     const getRiddle = (iaChoice, difficulty) => {
       const riddles = {
@@ -704,7 +718,11 @@ export default {
           clearInterval(timerInterval);
           timeRemaining.value = 0;
           timeBarWidth.value = 0;
-          gameMessage.value = "¡Tiempo agotado! Tu elección fue aleatoria.";
+          emit(
+            "update-ia-message",
+            "¡Tiempo agotado! Tu elección fue aleatoria.",
+            "sad"
+          ); // <-- MODIFICADO
           riddleActive.value = false;
           playRound(choices[Math.floor(Math.random() * choices.length)]);
         }
@@ -737,8 +755,8 @@ export default {
       playerChoice,
       iaChoice,
       result,
-      gameMessage,
-      messageType,
+      // gameMessage, <-- ELIMINADO
+      // messageType, <-- ELIMINADO
       choices,
       gameState,
       iaThinkingDisplayChoice,
@@ -755,7 +773,7 @@ export default {
       timeRemaining,
       timeBarWidth,
       riddleActive,
-      blockedPlayerAbility, // NUEVA LÍNEA en el return
+      blockedPlayerAbility,
       playRound,
       startGame,
       useAbility,

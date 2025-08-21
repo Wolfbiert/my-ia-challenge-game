@@ -4,13 +4,15 @@
     :class="{ 'is-intervening': isIntervening }"
     :style="{ top: topPosition + 'px', right: rightPosition + 'px' }"
   >
-    <img :src="aiSpriteSrc" :alt="altText" class="ia-sprite" />
-    <div
-      v-if="message"
-      class="ia-dialog-bubble"
-      :class="{ 'intervening-bubble': isIntervening }"
-    >
-      <p>{{ message }}</p>
+    <div class="ia-sprite-wrapper">
+      <img :src="aiSpriteSrc" :alt="altText" class="ia-sprite" />
+      <div
+        v-if="message"
+        class="ia-dialog-bubble"
+        :class="{ 'intervening-bubble': isIntervening }"
+      >
+        <p>{{ message }}</p>
+      </div>
     </div>
   </div>
 </template>
@@ -124,17 +126,23 @@ export default {
   pointer-events: none;
   transition: all 1.5s ease-in-out;
 }
+/* --- NUEVO: Contenedor para el sprite y la burbuja --- */
+.ia-sprite-wrapper {
+  display: flex;
+  align-items: flex-end; /* Alinea la burbuja con la parte inferior del sprite */
+  gap: 15px; /* Espacio entre el sprite y la burbuja */
+  pointer-events: none; /* Permite clics dentro de este contenedor */
+}
 
 /* --- ESTILOS DEL SPRITE Y LA BURBUJA --- */
 .ia-sprite {
-  width: 600px;
+  width: 500px; /* Tamaño de la IA a 500px */
   height: auto;
-  /* Se agrega una transición para el tamaño del sprite */
-  transition: transform 0.3s ease-out, width 0.5s ease-in-out,
-    scale 0.5s ease-in-out;
+  transition: transform 0.3s ease-out, width 0.5s ease-in-out;
   pointer-events: none;
   animation: float 3s ease-in-out infinite;
-  transform-origin: center center;
+  object-fit: contain; /* Mantiene la proporción de la imagen dentro del contenedor */
+  align-self: flex-start; /* Para que la imagen no se estire */
 }
 
 /* --- ESCALA PARA LAS DISTINTAS EXPRESIONES (AJUSTAR VALORES) --- */

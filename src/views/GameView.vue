@@ -6,6 +6,7 @@
         :difficulty="currentDifficulty"
         :aiModifiers="aiGameModifiers"
         @round-finished="handleRoundFinished"
+        @update-ia-message="handleIaMessage"
       />
 
       <button
@@ -72,6 +73,7 @@ export default {
       setAiMessage,
       decideAndApplyAiModifiers,
       setGlobalDifficulty,
+      handleGameMessage, // <-- ¡Importado desde el composable!
     } = useGameOrchestrator();
 
     const playerScore = ref(0);
@@ -157,8 +159,6 @@ export default {
         currentMiniGameComponent.value = nextGame;
         playedMiniGames.value.push(nextGame.name);
 
-        // La IA decide sus modificadores para el *próximo* juego
-        // Esta función ahora llama a interveneAi internamente si se cumplen las condiciones
         decideAndApplyAiModifiers(
           nextGame.name,
           playerScore.value,
@@ -167,7 +167,6 @@ export default {
 
         // Si la IA no está interviniendo (por ejemplo, si no aplica modificadores),
         // entonces muestra un mensaje normal de inicio de ronda.
-        // Esto previene que dos mensajes de IA se solapen.
         if (!isAiIntervening.value) {
           setAiMessage(`¡Es hora de ${nextGame.name}! ¡Mucha suerte!`, "happy");
         }
@@ -184,13 +183,10 @@ export default {
       showNextRoundButton.value = false;
       playedMiniGames.value = [];
 
-      // Establecer la dificultad global en el composable
       setGlobalDifficulty(currentDifficulty.value);
 
-      selectNextMiniGame(); // Esto ya llamará a decideAndApplyAiModifiers para el primer juego
+      selectNextMiniGame();
 
-      // Mensaje de inicio de desafío. Si la IA interviene en la primera ronda, este mensaje
-      // puede ser sobrescrito o retrasado, lo cual es un comportamiento deseable.
       if (!isAiIntervening.value) {
         setAiMessage(
           `¡Bienvenido al desafío! ¡Demuéstrame de qué eres capaz en dificultad ${currentDifficulty.value}!`,
@@ -208,6 +204,11 @@ export default {
       showNextRoundButton.value = false;
       currentRound.value++;
       selectNextMiniGame();
+    };
+
+    // Este es el nuevo método que se conecta con el composable
+    const handleIaMessage = (message, expression, intervene = false) => {
+      handleGameMessage(message, expression, intervene);
     };
 
     const handleRoundFinished = (payload) => {
@@ -233,7 +234,6 @@ export default {
         console.log("Ronda empatada.");
       }
 
-      // Asegúrate de que este mensaje no se muestre si la IA ya está interviniendo
       if (!isAiIntervening.value) {
         setAiMessage(aiReactionMessage, aiReactionExpression);
       }
@@ -264,7 +264,8 @@ export default {
       aiMessage,
       aiExpression,
       aiGameModifiers,
-      isAiIntervening, // <-- Exponer isAiIntervening
+      isAiIntervening,
+      handleIaMessage, // <-- ¡Expuesto para la plantilla!
     };
   },
 };
@@ -284,7 +285,7 @@ export default {
 
 .minigame-area {
   flex-grow: 2;
-  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
+  background-color: rgba(0, 0, 0, 0.5);
   border: 2px solid #42b983;
   border-radius: 15px;
   padding: 30px;
@@ -310,7 +311,7 @@ export default {
 }
 
 .scoreboard {
-  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
+  background-color: rgba(0, 0, 0, 0.5);
   border: 1px solid #ddd;
   border-radius: 10px;
   padding: 15px;
