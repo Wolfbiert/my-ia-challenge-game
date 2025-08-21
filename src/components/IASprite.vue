@@ -1,11 +1,10 @@
 <template>
-  <div class="ia-sprite-container" :class="{ 'is-intervening': isIntervening }">
-    <img
-      :src="aiSpriteSrc"
-      :alt="altText"
-      class="ia-sprite"
-      :class="aiExpression"
-    />
+  <div
+    class="ia-sprite-container"
+    :class="{ 'is-intervening': isIntervening }"
+    :style="{ top: topPosition + 'px', right: rightPosition + 'px' }"
+  >
+    <img :src="aiSpriteSrc" :alt="altText" class="ia-sprite" />
     <div
       v-if="message"
       class="ia-dialog-bubble"
@@ -17,7 +16,7 @@
 </template>
 
 <script>
-import { computed } from "vue";
+import { computed, ref, onUnmounted, watch } from "vue";
 
 export default {
   name: "IASprite",
@@ -28,11 +27,10 @@ export default {
     },
     expression: {
       type: String,
-      default: "normal", // 'normal', 'happy', 'sad', 'angry', etc.
+      default: "normal",
       validator: (value) =>
         ["normal", "happy", "sad", "angry", "thinking"].includes(value),
     },
-    // --- NUEVO: Prop para indicar el modo de intervención ---
     isIntervening: {
       type: Boolean,
       default: false,
@@ -40,18 +38,17 @@ export default {
   },
   setup(props) {
     const aiSpriteSrc = computed(() => {
-      // Puedes mapear expresiones a diferentes imágenes aquí
       switch (props.expression) {
         case "happy":
-          return "/images/ia/coca_happy.svg"; // Asume que tienes un sprite para feliz
+          return "/images/ia/coca-happy.svg";
         case "sad":
-          return "/images/ia/coca_sad.svg"; // Asume que tienes un sprite para triste
+          return "/images/ia/coca-sad.svg";
         case "angry":
-          return "/images/ia/coca_angry.svg"; // Asume que tienes un sprite para enojado
+          return "/images/ia/coca-angry.svg";
         case "thinking":
-          return "/images/ia/coca_thinking.svg"; // Asume que tienes un sprite para pensando
+          return "/images/ia/coca-thinking.svg";
         default:
-          return `/images/ia/coca.svg`; // Sprite normal por defecto
+          return `/images/ia/coca.svg`;
       }
     });
 
@@ -59,85 +56,192 @@ export default {
       () => `Sprite de la IA en estado ${props.expression}`
     );
 
+    const topPosition = ref(20);
+    const rightPosition = ref(20);
+    let movementInterval;
+
+    const generateRandomPosition = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      const spriteWidth = 300;
+      const spriteHeight = 300;
+
+      const newTop = Math.floor(
+        Math.random() * (viewportHeight - spriteHeight)
+      );
+      const newRight = Math.floor(
+        Math.random() * (viewportWidth - spriteWidth)
+      );
+
+      topPosition.value = newTop;
+      rightPosition.value = newRight;
+    };
+
+    const startMovement = () => {
+      if (!movementInterval) {
+        generateRandomPosition();
+        movementInterval = setInterval(generateRandomPosition, 4000);
+      }
+    };
+
+    const stopMovement = () => {
+      clearInterval(movementInterval);
+      movementInterval = null;
+    };
+
+    watch(
+      () => props.isIntervening,
+      (isIntervening) => {
+        if (isIntervening) {
+          stopMovement();
+        } else {
+          startMovement();
+        }
+      },
+      { immediate: true }
+    );
+
+    onUnmounted(() => {
+      stopMovement();
+    });
+
     return {
       aiSpriteSrc,
       altText,
+      topPosition,
+      rightPosition,
     };
   },
 };
 </script>
 
 <style scoped>
+/* --- ESTILOS DEL CONTENEDOR DE LA IA --- */
 .ia-sprite-container {
-  position: absolute; /* Permitirá posicionarlo fácilmente en GameView */
-  right: 20px; /* Posiciona 20px desde la derecha del contenedor padre */
-  bottom: 20px; /* Posiciona 20px desde la parte inferior del contenedor padre */
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end; /* Alinea los elementos (sprite y burbuja) a la derecha */
-  z-index: 100; /* Asegura que esté por encima de otros elementos */
-  pointer-events: none; /* Asegura que no bloquee clics en elementos debajo */
-  transition: all 0.5s ease-in-out, transform 0.3s ease-out; /* Transición para movimiento y animaciones */
-  min-width: 150px; /* Asegura que el contenedor tenga un tamaño base */
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  transition: all 1.5s ease-in-out;
 }
 
-/* --- NUEVOS ESTILOS PARA MODO INTERVENCIÓN --- */
+/* --- ESTILOS DEL SPRITE Y LA BURBUJA --- */
+.ia-sprite {
+  width: 600px;
+  height: auto;
+  /* Se agrega una transición para el tamaño del sprite */
+  transition: transform 0.3s ease-out, width 0.5s ease-in-out,
+    scale 0.5s ease-in-out;
+  pointer-events: auto;
+  animation: float 3s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+/* --- ESCALA PARA LAS DISTINTAS EXPRESIONES (AJUSTAR VALORES) --- */
+.ia-sprite.happy {
+  scale: 1; /* Ajusta este valor para que se vea del mismo tamaño */
+}
+
+.ia-sprite.sad {
+  scale: 1; /* Ajusta este valor para que se vea del mismo tamaño */
+}
+
+.ia-sprite.angry {
+  scale: 1; /* Ajusta este valor para que se vea del mismo tamaño */
+}
+
+.ia-sprite.thinking {
+  scale: 1; /* Ajusta este valor si es necesario */
+  animation: pulse 1s infinite alternate;
+}
+
+.ia-dialog-bubble {
+  background-color: rgba(255, 255, 255, 0.8);
+  color: #333;
+  padding: 10px 15px;
+  border-radius: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-right: 20px;
+  margin-bottom: 10px;
+  max-width: 200px;
+  text-align: center;
+  position: relative;
+  opacity: 0;
+  animation: fadeInBubble 0.3s forwards;
+  pointer-events: auto;
+}
+
+.ia-dialog-bubble p {
+  margin: 0;
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+
+.ia-dialog-bubble::after {
+  content: "";
+  position: absolute;
+  right: 15px;
+  bottom: -10px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid rgba(255, 255, 255, 0.8);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* --- ESTILOS DEL MODO DE INTERVENCIÓN (CENTRADO) --- */
 .ia-sprite-container.is-intervening {
-  left: 50%; /* Centra horizontalmente */
-  top: 50%; /* Centra verticalmente */
-  transform: translate(-50%, -50%); /* Ajusta para el centro exacto */
-  background-color: rgba(0, 0, 0, 0.7); /* Fondo oscuro semitransparente */
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  right: unset;
+  bottom: unset;
+
+  background-color: rgba(0, 0, 0, 0.7);
   border-radius: 15px;
   padding: 20px;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Resplandor verde */
-  z-index: 1000; /* Muy alto para que esté por encima de todo */
-  pointer-events: auto; /* Permite interacciones si el modo central es interactivo */
-  flex-direction: column; /* Asegura que los elementos sigan siendo columna */
-  align-items: center; /* Centra los elementos dentro del contenedor */
-  justify-content: center; /* Centra verticalmente los elementos */
-  width: auto; /* Ajusta el ancho automáticamente */
-  max-width: 80%; /* No se extienda demasiado */
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+  z-index: 1000;
+  pointer-events: auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  max-width: 80%;
+  animation: none;
 }
 
 .ia-sprite-container.is-intervening .ia-sprite {
-  width: 200px; /* Un poco más grande en el centro */
-  height: auto;
-  animation: none; /* Desactiva la animación de flotar cuando interviene */
-  transform: none; /* Resetea cualquier transformación de expresión */
+  width: 200px;
+  animation: none;
+  margin-bottom: 20px;
+  /* Se reinicia la escala al intervenir para que el width sea el que mande */
+  scale: 1;
 }
 
 .ia-sprite-container.is-intervening .ia-dialog-bubble {
-  margin: 20px 0 0 0; /* Ajusta márgenes para centrar la burbuja */
-  max-width: 350px; /* Más ancho para el mensaje central */
-  text-align: center;
-  background-color: #e0ffe0; /* Un color de burbuja que destaque más en el modo intervención */
+  margin-top: -20px;
+  margin-bottom: 0;
+  background-color: rgba(224, 255, 224, 0.9);
   color: #105010;
   box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
   border: 2px solid #00aa00;
+  max-width: 350px;
+  text-align: center;
 }
 
-/* Ajuste de la cola de la burbuja para el modo intervención (apunta hacia arriba) */
 .ia-dialog-bubble.intervening-bubble::after {
-  left: 50%; /* Centra la cola */
-  bottom: unset; /* Desactiva el bottom original */
-  top: -10px; /* Posiciona la cola en la parte superior de la burbuja */
-  border-top: none;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-bottom: 10px solid #e0ffe0; /* Color de la cola igual al nuevo fondo de la burbuja */
-  transform: translateX(-50%); /* Ajusta la posición de la cola */
-}
-/* Fin de estilos de intervención */
-
-.ia-sprite {
-  width: 150px; /* Ajusta el tamaño de tu sprite */
-  height: auto;
-  transition: transform 0.3s ease-out; /* Transición para animaciones sutiles */
-  pointer-events: auto; /* Permite interacciones si la burbuja está sobre él */
-  /* Animación de flotación sutil */
-  animation: float 3s ease-in-out infinite;
+  top: 100%;
+  bottom: unset;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 10px solid rgba(224, 255, 224, 0.9);
+  border-bottom: none;
 }
 
+/* --- KEYFRAMES DE ANIMACIÓN --- */
 @keyframes float {
   0% {
     transform: translateY(0px);
@@ -150,13 +254,6 @@ export default {
   }
 }
 
-/* Clases para expresiones (ejemplo) */
-.ia-sprite.happy {
-  /* Puedes añadir transformaciones o filtros para expresiones */
-}
-.ia-sprite.thinking {
-  animation: pulse 1s infinite alternate; /* Ejemplo de animación para "pensando" */
-}
 @keyframes pulse {
   from {
     opacity: 0.8;
@@ -166,42 +263,6 @@ export default {
     opacity: 1;
     transform: scale(1) translateY(-8px);
   }
-}
-
-.ia-dialog-bubble {
-  background-color: #fff; /* Fondo de la burbuja */
-  color: #333; /* Color del texto */
-  padding: 10px 15px;
-  border-radius: 20px; /* Forma de burbuja */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  margin-right: 20px; /* Espacio para que no choque con el sprite */
-  margin-bottom: 10px; /* Posición encima del sprite */
-  max-width: 200px; /* Ancho máximo para el texto */
-  text-align: center;
-  position: relative; /* Para la cola de la burbuja */
-  opacity: 0; /* Por defecto oculta */
-  animation: fadeInBubble 0.3s forwards; /* Animación de aparición */
-  pointer-events: auto; /* Permite clic en la burbuja si es interactiva */
-}
-
-.ia-dialog-bubble p {
-  margin: 0;
-  font-size: 0.95em;
-  line-height: 1.4;
-}
-
-/* Cola de la burbuja de diálogo */
-.ia-dialog-bubble::after {
-  content: "";
-  position: absolute;
-  right: 15px; /* Posiciona la cola en el lado derecho de la burbuja */
-  bottom: -10px; /* Ajusta para que la cola apunte hacia abajo */
-  width: 0;
-  height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-top: 10px solid #fff; /* Color de la cola igual al fondo de la burbuja */
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1)); /* Sombra para la cola */
 }
 
 @keyframes fadeInBubble {

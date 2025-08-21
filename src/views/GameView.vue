@@ -318,22 +318,6 @@ export default {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.ia-display {
-  background-color: rgba(0, 0, 0, 0.5); /* Negro semi-transparente */
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 15px;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  position: relative;
-  overflow: hidden;
-}
-
 h2,
 h3 {
   color: #ffffff;
