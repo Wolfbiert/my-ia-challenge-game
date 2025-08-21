@@ -2,9 +2,8 @@
 import { ref, watch } from "vue";
 import { Howl } from "howler";
 
-// Elimina 'backgroundMusic', ya que no se usa.
 const isMusicPlaying = ref(false);
-const isMusicEnabled = ref(true);
+const isMusicEnabled = ref(false);
 
 let bgmInstance = null;
 
@@ -20,11 +19,9 @@ const initBackgroundMusic = () => {
 };
 
 const toggleMusic = () => {
-  if (isMusicPlaying.value) {
-    stopMusic();
-  } else {
-    playMusic();
-  }
+  // Simplemente cambia el valor de la variable de estado
+  // El 'watch' que ya tienes se encargará de reproducir o detener la música
+  isMusicEnabled.value = !isMusicEnabled.value;
 };
 
 const playMusic = () => {
