@@ -132,7 +132,7 @@ export default {
   /* Se agrega una transición para el tamaño del sprite */
   transition: transform 0.3s ease-out, width 0.5s ease-in-out,
     scale 0.5s ease-in-out;
-  pointer-events: auto;
+  pointer-events: none;
   animation: float 3s ease-in-out infinite;
   transform-origin: center center;
 }
@@ -219,6 +219,8 @@ export default {
   margin-bottom: 20px;
   /* Se reinicia la escala al intervenir para que el width sea el que mande */
   scale: 1;
+  /* El sprite permite clics en modo de intervención */
+  pointer-events: auto;
 }
 
 .ia-sprite-container.is-intervening .ia-dialog-bubble {
