@@ -86,12 +86,12 @@ export default {
         case "normal":
           baseMinRange = 1;
           baseMaxRange = 20;
-          baseMaxAttempts = 7;
+          baseMaxAttempts = 5;
           break;
         case "dificil":
           baseMinRange = 1;
           baseMaxRange = 30;
-          baseMaxAttempts = 8;
+          baseMaxAttempts = 6;
           break;
         default:
           baseMinRange = 1;

@@ -66,6 +66,7 @@ const modifierProbabilities = {
         message: "Veo que te cuesta un poco... ¡Te daré una ayudita esta vez!",
         expression: "happy",
         intervene: false,
+        duration: 6000,
       },
     },
     normal: {
@@ -75,6 +76,7 @@ const modifierProbabilities = {
         message: "¡No te voy a dejar ganar tan fácil! Un pequeño ajuste...",
         expression: "angry",
         intervene: true,
+        duration: 6000,
       },
       narrowRange: {
         chance: 0.2,
@@ -83,6 +85,7 @@ const modifierProbabilities = {
           "Esto está muy reñido... ¡Veremos si puedes con un desafío extra!",
         expression: "thinking",
         intervene: true,
+        duration: 6000,
       },
     },
     dificil: {
@@ -92,6 +95,7 @@ const modifierProbabilities = {
         message: "¡Me estás desafiando, humano! ¡Esta vez el desafío es mayor!",
         expression: "angry",
         intervene: true,
+        duration: 6000,
       },
       narrowRange: {
         chance: 0.3,
@@ -99,6 +103,7 @@ const modifierProbabilities = {
         message: "No creas que será tan sencillo. ¡El espacio se reduce!",
         expression: "thinking",
         intervene: true,
+        duration: 6000,
       },
       invertHints: {
         chance: 0.2,
@@ -106,6 +111,7 @@ const modifierProbabilities = {
         message: "¡Cuidado! Las pistas mienten. ¡Jajaja!",
         expression: "thinking",
         intervene: true,
+        duration: 6000,
       },
       dynamicRangeShift: {
         chance: 0.15,
@@ -114,6 +120,7 @@ const modifierProbabilities = {
           "¡El universo de números es... inestable! ¡Prepárate para la incertidumbre!",
         expression: "angry",
         intervene: true,
+        duration: 6000,
       },
     },
   },
@@ -130,6 +137,7 @@ const modifierProbabilities = {
           "¡Humano! ¡Mi influencia bloquea una de tus habilidades esta ronda!",
         expression: "thinking",
         intervene: true,
+        duration: 6000,
       },
     },
     dificil: {
@@ -140,6 +148,7 @@ const modifierProbabilities = {
           "¡Mis circuitos están activos! ¡Una de tus ventajas ha sido anulada!",
         expression: "angry",
         intervene: true,
+        duration: 6000,
       },
     },
   },
@@ -156,6 +165,7 @@ const modifierProbabilities = {
         message: "¡Sube la velocidad! ¿Puedes seguirme?",
         expression: "thinking",
         intervene: true,
+        duration: 6000,
       },
     },
     dificil: {
@@ -166,6 +176,7 @@ const modifierProbabilities = {
           "¡Mis secuencias son un desafío para los más audaces! ¡Demuéstrame tu memoria!",
         expression: "angry",
         intervene: true,
+        duration: 6000,
       },
       nonRepeatingSequence: {
         chance: 0.2, // 20% de probabilidad
@@ -174,6 +185,7 @@ const modifierProbabilities = {
           "¡El patrón... ha desaparecido! ¡Cada ronda es un nuevo enigma!",
         expression: "thinking",
         intervene: true,
+        duration: 6000,
       },
       // Posibilidad de secuencia EXTREMADAMENTE difícil
       extremeSequence: {
@@ -183,6 +195,7 @@ const modifierProbabilities = {
           "¡Estás a punto de experimentar mis límites! ¡Intenta no colapsar!",
         expression: "angry",
         intervene: true,
+        duration: 6000,
       },
     },
   },
