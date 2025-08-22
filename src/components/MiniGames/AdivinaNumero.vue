@@ -329,17 +329,29 @@ export default {
 /* (El CSS se mantiene igual que antes, no hay cambios directos necesarios aquí para los nuevos modificadores) */
 
 .guess-number-game-container {
-  max-width: 400px;
+  /* Eliminamos el max-width para que se expanda */
+  /* max-width: 400px; */
   margin: auto;
   padding: 20px;
   border-radius: 10px;
   background-color: #f5f5f5;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   font-family: "Segoe UI", sans-serif;
+
+  /* NUEVOS AJUSTES PARA EXPANDIR Y CENTRAR CONTENIDO */
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Centra verticalmente el contenido */
+  align-items: center; /* Centra horizontalmente el contenido */
+  box-sizing: border-box; /* Asegura que el padding no cause desbordamiento */
 }
 
 h2 {
   text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 20px;
 }
 
 .game-message {
@@ -363,6 +375,7 @@ h2 {
   display: flex;
   gap: 10px;
   margin-bottom: 15px;
+  width: 80%; /* Haz que la sección de entrada ocupe la mayor parte del ancho */
 }
 
 input[type="number"] {
