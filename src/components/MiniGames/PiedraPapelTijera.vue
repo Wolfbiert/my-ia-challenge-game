@@ -214,7 +214,7 @@ import useGameOrchestrator from "@/composables/useGameOrchestrator.js";
 
 export default {
   name: "PiedraPapelTijera",
-  emits: ["round-finished", "update-ia-message"], // <-- AÑADIDO
+  emits: ["round-finished"], // <-- 'update-ia-message' eliminado
   props: {
     difficulty: {
       type: String,
@@ -227,11 +227,12 @@ export default {
     },
   },
   setup(props, { emit }) {
+    const { handleGameMessage, aiGameModifiers, decideAndApplyAiModifiers } =
+      useGameOrchestrator(); // <-- Usando la función del orquestador
+
     const playerChoice = ref(null);
     const iaChoice = ref(null);
     const result = ref("");
-    // const gameMessage = ref("Elige tu jugada..."); <-- ELIMINADO
-    // const messageType = ref("info"); <-- ELIMINADO
     const choices = ["rock", "paper", "scissors"];
 
     const gameState = ref("playerChoice");
@@ -256,8 +257,6 @@ export default {
     const activeAbility = ref(null);
     const iaBlockedChoice = ref(null);
     const abilityUsedThisRound = ref(false);
-    const { aiGameModifiers, decideAndApplyAiModifiers } =
-      useGameOrchestrator();
 
     const blockedPlayerAbility = ref(null);
 
@@ -339,8 +338,10 @@ export default {
       playerChoice.value = null;
       iaChoice.value = null;
       result.value = "";
-      // gameMessage.value = `Ronda ${currentRound.value} de ${totalRounds}. Elige tu jugada...`; <-- ELIMINADO
-      // messageType.value = "info"; <-- ELIMINADO
+      handleGameMessage(
+        `Ronda ${currentRound.value} de ${totalRounds}. Elige tu jugada...`,
+        "info"
+      ); // <-- USANDO EL ORQUESTADOR
       gameState.value = "playerChoice";
       iaThinkingDisplayChoice.value = null;
       iaHasChosen.value = false;
@@ -471,25 +472,23 @@ export default {
     const playRound = async (choice) => {
       stopTimer();
       playerChoice.value = choice;
-      emit("update-ia-message", `Tú elegiste: ${choice}...`, "thinking"); // <-- MODIFICADO
+      handleGameMessage(`Tú elegiste: ${choice}...`, "thinking"); // <-- USANDO EL ORQUESTADOR
       gameState.value = "iaThinking";
       showExplosion.value = false;
       iaHasChosen.value = false;
       roundLoser.value = null;
 
       if (activeAbility.value === "desestabilizar") {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...",
           "sad"
-        ); // <-- MODIFICADO
+        ); // <-- USANDO EL ORQUESTADOR
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } else if (activeAbility.value === "bloqueo") {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`,
           "angry"
-        ); // <-- MODIFICADO
+        ); // <-- USANDO EL ORQUESTADOR
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
@@ -525,8 +524,7 @@ export default {
       let roundWinner;
       if (playerChoice.value === iaChoice.value) {
         result.value = "¡Empate!";
-        // messageType.value = "info"; <-- ELIMINADO
-        emit("update-ia-message", "¡Empate! Un digno rival.", "normal"); // <-- AÑADIDO
+        handleGameMessage("¡Empate! Un digno rival.", "normal"); // <-- USANDO EL ORQUESTADOR
         roundWinner = "draw";
         roundLoser.value = null;
       } else if (
@@ -535,15 +533,13 @@ export default {
         (playerChoice.value === "scissors" && iaChoice.value === "paper")
       ) {
         result.value = "¡Ganaste esta ronda!";
-        // messageType.value = "success"; <-- ELIMINADO
-        emit("update-ia-message", "¡Ganaste esta ronda! ¡Maldición!", "sad"); // <-- AÑADIDO
+        handleGameMessage("¡Ganaste esta ronda! ¡Maldición!", "sad"); // <-- USANDO EL ORQUESTADOR
         roundWinner = "player";
         roundLoser.value = "ia";
         playerWins.value++;
       } else {
         result.value = "¡Perdiste esta ronda!";
-        // messageType.value = "error"; <-- ELIMINADO
-        emit("update-ia-message", "¡Perdiste! ¡Gané esta vez!", "happy"); // <-- AÑADIDO
+        handleGameMessage("¡Perdiste! ¡Gané esta vez!", "happy"); // <-- USANDO EL ORQUESTADOR
         roundWinner = "ia";
         roundLoser.value = "player";
         iaWins.value++;
@@ -573,39 +569,43 @@ export default {
       riddleActive.value = false;
 
       if (playerWins.value === Math.ceil(totalRounds / 2)) {
-        // gameMessage.value = "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!"; <-- ELIMINADO
-        // messageType.value = "success"; <-- ELIMINADO
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!",
-          "happy"
-        ); // <-- AÑADIDO
+          "happy",
+          true // Intervención de la IA
+        ); // <-- USANDO EL ORQUESTADOR
         gameFinished.value = true;
-        emit("round-finished", { winner: "player", score: playerWins.value });
+        emit("round-finished", {
+          playerScore: playerWins.value,
+          iaScore: iaWins.value,
+        });
       } else if (iaWins.value === Math.ceil(totalRounds / 2)) {
-        // gameMessage.value = "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera."; <-- ELIMINADO
-        // messageType.value = "error"; <-- ELIMINADO
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera.",
-          "angry"
-        ); // <-- AÑADIDO
+          "angry",
+          true // Intervención de la IA
+        ); // <-- USANDO EL ORQUESTADOR
         gameFinished.value = true;
-        emit("round-finished", { winner: "ia", score: iaWins.value });
+        emit("round-finished", {
+          playerScore: playerWins.value,
+          iaScore: iaWins.value,
+        });
       } else {
         currentRound.value++;
         if (currentRound.value <= totalRounds) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           resetRound();
         } else {
-          // gameMessage.value = "¡Fin del juego! Resultado final. Puedes jugar de nuevo."; <-- ELIMINADO
-          emit(
-            "update-ia-message",
+          handleGameMessage(
             "¡Fin del juego! Resultado final. Puedes jugar de nuevo.",
-            "normal"
-          ); // <-- AÑADIDO
+            "normal",
+            true // Intervención de la IA
+          ); // <-- USANDO EL ORQUESTADOR
           gameFinished.value = true;
-          emit("round-finished", { winner: "draw", score: playerWins.value });
+          emit("round-finished", {
+            playerScore: playerWins.value,
+            iaScore: iaWins.value,
+          });
         }
       }
     };
@@ -613,19 +613,14 @@ export default {
     const useAbility = (abilityName, blockedChoice = null) => {
       // NUEVA LÍNEA para verificar si la habilidad está bloqueada por la IA
       if (blockedPlayerAbility.value === abilityName) {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `¡Habilidad "${abilityName}" está bloqueada por la IA esta ronda!`,
           "angry"
-        ); // <-- MODIFICADO
+        ); // <-- USANDO EL ORQUESTADOR
         return;
       }
       if (abilityUsedThisRound.value) {
-        emit(
-          "update-ia-message",
-          "Ya has usado una habilidad en esta ronda.",
-          "sad"
-        ); // <-- MODIFICADO
+        handleGameMessage("Ya has usado una habilidad en esta ronda.", "sad"); // <-- USANDO EL ORQUESTADOR
         return;
       }
 
@@ -633,11 +628,10 @@ export default {
         abilitiesUsed.value[abilityName] ||
         gameState.value !== "playerChoice"
       ) {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `Ya usaste la habilidad "${abilityName}" o no es el momento.`,
           "sad"
-        ); // <-- MODIFICADO
+        ); // <-- USANDO EL ORQUESTADOR
         return;
       }
 
@@ -648,34 +642,21 @@ export default {
 
       if (abilityName === "bloqueo") {
         iaBlockedChoice.value = blockedChoice;
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `¡Habilidad 'Bloqueo' activada! La IA no podrá usar ${blockedChoice} esta ronda. Elige tu jugada.`,
           "thinking"
-        ); // <-- MODIFICADO
+        ); // <-- USANDO EL ORQUESTADOR
       } else if (abilityName === "desestabilizar") {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `¡Habilidad 'Desestabilizar' activada! La IA tiene una alta probabilidad de equivocarse esta ronda. Elige tu jugada.`,
           "thinking"
-        ); // <-- MODIFICADO
+        ); // <-- USANDO EL ORQUESTADOR
       } else if (abilityName === "acertijo") {
         const riddle = getRiddle(preChosenIaMove, props.difficulty);
-        emit("update-ia-message", `Acertijo de la IA: "${riddle}"`, "thinking"); // <-- MODIFICADO
+        handleGameMessage(`Acertijo de la IA: "${riddle}"`, "thinking"); // <-- USANDO EL ORQUESTADOR
         riddleActive.value = true;
       }
     };
-
-    // const resetMessageState = () => { <-- ELIMINADO
-    //   if (riddleActive.value) return;
-    //   if (
-    //     !activeAbility.value ||
-    //     (activeAbility.value === "acertijo" && !riddleActive.value)
-    //   ) {
-    //     gameMessage.value = "Elige tu jugada...";
-    //     messageType.value = "info";
-    //   }
-    // };
 
     const getRiddle = (iaChoice, difficulty) => {
       const riddles = {
@@ -718,11 +699,10 @@ export default {
           clearInterval(timerInterval);
           timeRemaining.value = 0;
           timeBarWidth.value = 0;
-          emit(
-            "update-ia-message",
+          handleGameMessage(
             "¡Tiempo agotado! Tu elección fue aleatoria.",
             "sad"
-          ); // <-- MODIFICADO
+          ); // <-- USANDO EL ORQUESTADOR
           riddleActive.value = false;
           playRound(choices[Math.floor(Math.random() * choices.length)]);
         }
@@ -755,8 +735,6 @@ export default {
       playerChoice,
       iaChoice,
       result,
-      // gameMessage, <-- ELIMINADO
-      // messageType, <-- ELIMINADO
       choices,
       gameState,
       iaThinkingDisplayChoice,

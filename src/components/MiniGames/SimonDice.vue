@@ -36,11 +36,12 @@
 
 <script>
 import { ref, onMounted, watch, markRaw } from "vue";
-import { Howl } from "howler"; // Importar Howl para los sonidos
+import { Howl } from "howler";
+import useGameOrchestrator from "@/composables/useGameOrchestrator";
 
 export default {
   name: "SimonDice",
-  emits: ["round-finished", "update-ia-message"],
+  emits: ["round-finished"],
   props: {
     difficulty: {
       type: String,
@@ -54,6 +55,8 @@ export default {
   },
 
   setup(props, { emit }) {
+    const { handleGameMessage } = useGameOrchestrator();
+
     const colors = ["red", "blue", "green", "yellow"];
     let initialSequenceLength = 0;
     let roundsToWinSimon = 0;
@@ -61,15 +64,11 @@ export default {
     const pauseBetweenLights = ref(0);
     const nonRepeatingSequenceActive = ref(false);
 
-    // Sonidos con Howl
     const soundMap = markRaw({
       red: new Howl({ src: [process.env.BASE_URL + "sounds/red.mp3"] }),
       blue: new Howl({ src: [process.env.BASE_URL + "sounds/blue.mp3"] }),
       green: new Howl({ src: [process.env.BASE_URL + "sounds/green.mp3"] }),
       yellow: new Howl({ src: [process.env.BASE_URL + "sounds/yellow.mp3"] }),
-      // Añadir sonidos de error y victoria si los tienes
-      win: new Howl({ src: [process.env.BASE_URL + "sounds/win.mp3"] }),
-      lose: new Howl({ src: [process.env.BASE_URL + "sounds/lose.mp3"] }),
     });
 
     const setGameParametersInternal = (difficulty, modifiers = {}) => {
@@ -151,9 +150,6 @@ export default {
 
     const gameStarted = ref(false);
     const gameOver = ref(false);
-    // const gameMessage = ref('Presiona "¡Empezar!" para jugar.'); <-- ELIMINADO
-    // const messageType = ref("info"); <-- ELIMINADO
-
     const sequence = ref([]);
     const playerSequence = ref([]);
     const isShowingSequence = ref(false);
@@ -183,17 +179,17 @@ export default {
     const showSequence = async () => {
       isShowingSequence.value = true;
       isPlayerTurn.value = false;
-      emit(
-        "update-ia-message",
+      playerSequence.value = []; // **AGREGADO: limpia la secuencia del jugador antes de mostrar la de Simón**
+      handleGameMessage(
         `Ronda ${currentSimonRound.value}. ¡Memoriza la secuencia!`,
         "thinking"
-      ); // <-- MODIFICADO
+      );
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       for (let i = 0; i < sequence.value.length; i++) {
         activeLight.value = sequence.value[i];
-        soundMap[sequence.value[i]].play(); // Usar Howl para reproducir el sonido
+        soundMap[sequence.value[i]].play();
         await new Promise((resolve) =>
           setTimeout(resolve, lightDuration.value)
         );
@@ -205,7 +201,7 @@ export default {
 
       isShowingSequence.value = false;
       isPlayerTurn.value = true;
-      emit("update-ia-message", "¡Tu turno! Repite la secuencia.", "happy"); // <-- MODIFICADO
+      handleGameMessage("¡Tu turno! Repite la secuencia.", "happy");
     };
 
     const handlePlayerClick = (index) => {
@@ -214,7 +210,7 @@ export default {
 
       const clickedColor = colors[index];
       playerSequence.value.push(clickedColor);
-      soundMap[clickedColor].play(); // Usar Howl para el sonido del clic
+      soundMap[clickedColor].play();
 
       const originalLight = activeLight.value;
       activeLight.value = clickedColor;
@@ -226,38 +222,40 @@ export default {
         playerSequence.value[playerSequence.value.length - 1] !==
         sequence.value[playerSequence.value.length - 1]
       ) {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `¡Secuencia incorrecta! Perdiste en la ronda ${currentSimonRound.value}.`,
-          "sad"
-        ); // <-- MODIFICADO
-        soundMap.lose.play();
+          "sad",
+          true
+        );
         gameOver.value = true;
         isPlayerTurn.value = false;
-        emit("round-finished", { winner: "ia" });
+        emit("round-finished", { playerScore: 0, iaScore: 1 });
         return;
       }
 
+      // NO HACEMOS NADA si el jugador ha acertado el botón pero aún le faltan más de la secuencia
+      // Esta es la lógica central: el código debe esperar a que el jugador complete la secuencia
+
       if (playerSequence.value.length === sequence.value.length) {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           "¡Correcto! Preparando la siguiente ronda...",
           "normal"
-        ); // <-- MODIFICADO
+        );
         isPlayerTurn.value = false;
 
         setTimeout(() => {
           currentSimonRound.value++;
           if (currentSimonRound.value > roundsToWinSimon) {
-            emit(
-              "update-ia-message",
+            handleGameMessage(
               "¡Has completado el desafío de Simón Dice!",
-              "happy"
-            ); // <-- MODIFICADO
-            soundMap.win.play();
+              "happy",
+              true
+            );
             gameOver.value = true;
-            emit("round-finished", { winner: "player" });
+            emit("round-finished", { playerScore: 1, iaScore: 0 });
           } else {
+            // AÑADIDO: Limpiar la secuencia del jugador antes de continuar a la siguiente ronda
+            playerSequence.value = [];
             addStepOrGenerateNew();
             showSequence();
           }
@@ -269,7 +267,7 @@ export default {
       gameStarted.value = true;
       gameOver.value = false;
       currentSimonRound.value = 1;
-      emit("update-ia-message", "El juego ha comenzado. ¡Prepárate!", "happy"); // <-- MODIFICADO
+      handleGameMessage("El juego ha comenzado. ¡Prepárate!", "happy");
 
       setGameParametersInternal(props.difficulty, props.aiModifiers);
 
@@ -283,13 +281,14 @@ export default {
         }
       }
 
+      playerSequence.value = []; // **AGREGADO: limpia la secuencia al iniciar el juego**
       showSequence();
     };
 
     const resetGame = () => {
       gameStarted.value = false;
       gameOver.value = false;
-      emit("update-ia-message", 'Presiona "¡Empezar!" para jugar.', "normal"); // <-- MODIFICADO
+      handleGameMessage('Presiona "¡Empezar!" para jugar.', "normal");
       currentSimonRound.value = 1;
       sequence.value = [];
       playerSequence.value = [];
@@ -326,8 +325,6 @@ export default {
       colors,
       gameStarted,
       gameOver,
-      // gameMessage, <-- ELIMINADO
-      // messageType, <-- ELIMINADO
       sequence,
       playerSequence,
       isShowingSequence,

@@ -38,10 +38,11 @@
 
 <script>
 import { ref, onMounted, watch, computed } from "vue";
+import useGameOrchestrator from "@/composables/useGameOrchestrator";
 
 export default {
   name: "AdivinaNumero",
-  emits: ["round-finished", "update-ia-message"],
+  emits: ["round-finished"], // 'update-ia-message' fue eliminado
   props: {
     difficulty: {
       type: String,
@@ -54,6 +55,8 @@ export default {
     },
   },
   setup(props, { emit }) {
+    const { handleGameMessage } = useGameOrchestrator();
+
     const randomNumber = ref(0);
     const playerGuess = ref(null);
     const attempts = ref(0);
@@ -150,12 +153,7 @@ export default {
     const initializeGame = () => {
       generateRandomNumber();
       playerGuess.value = null;
-      // EMITIR MENSAJE INICIAL AL ORCHESTATOR
-      emit(
-        "update-ia-message",
-        `Adivina un número entre ${currentMinRange.value} y ${currentMaxRange.value}. Tienes ${currentMaxAttempts.value} intentos.`,
-        "normal"
-      );
+      // Ya no se emite un mensaje inicial, el orquestador lo manejará.
       attempts.value = 0;
       guessHistory.value = [];
       gameState.value = "playing";
@@ -182,17 +180,12 @@ export default {
         playerGuess.value === null ||
         playerGuess.value === ""
       ) {
-        emit(
-          "update-ia-message",
-          "Por favor, ingresa un número válido.",
-          "sad"
-        );
+        handleGameMessage("Por favor, ingresa un número válido.", "sad");
         return;
       }
 
       if (guess < currentMinRange.value || guess > currentMaxRange.value) {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `El número debe estar entre ${currentMinRange.value} y ${currentMaxRange.value}.`,
           "sad"
         );
@@ -204,23 +197,23 @@ export default {
       let isCorrect = false;
 
       if (guess === randomNumber.value) {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `¡Felicidades! Adivinaste el número ${randomNumber.value} en ${attempts.value} intentos.`,
-          "happy"
+          "happy",
+          true // Intervención de la IA al ganar
         );
         gameState.value = "gameOver";
-        emit("round-finished", { winner: "player" });
+        emit("round-finished", { playerScore: 1, iaScore: 0 }); // Evento actualizado
         hintText = "¡Correcto!";
         isCorrect = true;
       } else if (attempts.value >= currentMaxAttempts.value) {
-        emit(
-          "update-ia-message",
+        handleGameMessage(
           `¡Se acabaron los intentos! El número era ${randomNumber.value}.`,
-          "angry"
+          "angry",
+          true // Intervención de la IA al perder
         );
         gameState.value = "gameOver";
-        emit("round-finished", { winner: "ia" });
+        emit("round-finished", { playerScore: 0, iaScore: 1 }); // Evento actualizado
         hintText = "¡Fallaste! Se acabaron los intentos.";
       } else {
         const difference = Math.abs(guess - randomNumber.value);
@@ -235,8 +228,7 @@ export default {
 
         if (hintToDisplay) {
           hintText = `Mayor. ${hotColdHint}`;
-          emit(
-            "update-ia-message",
+          handleGameMessage(
             `El número es mayor. ${hotColdHint} Te quedan ${
               currentMaxAttempts.value - attempts.value
             } intentos.`,
@@ -247,8 +239,7 @@ export default {
           }
         } else {
           hintText = `Menor. ${hotColdHint}`;
-          emit(
-            "update-ia-message",
+          handleGameMessage(
             `El número es menor. ${hotColdHint} Te quedan ${
               currentMaxAttempts.value - attempts.value
             } intentos.`,
