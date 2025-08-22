@@ -20,7 +20,7 @@ let interventionTimeout = null; // Variable para guardar el temporizador que ocu
 // Estas funciones son responsables de mostrar y ocultar los mensajes de la IA con un temporizador.
 // Son el corazón del sistema de diálogo.
 
-const setAiMessage = (message, expression = "normal", duration = 3000) => {
+const setAiMessage = (message, expression = "normal", duration = 5000) => {
   // Limpia cualquier temporizador de intervención que pueda estar activo.
   clearTimeout(interventionTimeout);
   // Asegura que el modo de intervención esté desactivado para mensajes normales.
@@ -39,7 +39,7 @@ const setAiMessage = (message, expression = "normal", duration = 3000) => {
   }
 };
 
-const interveneAi = (message, expression = "normal", duration = 4000) => {
+const interveneAi = (message, expression = "normal", duration = 5000) => {
   // Limpia cualquier temporizador anterior para evitar conflictos.
   clearTimeout(interventionTimeout);
 
@@ -168,7 +168,7 @@ const modifierProbabilities = {
           "¡Humano! ¡Mi influencia bloquea una de tus habilidades esta ronda!",
         expression: "thinking",
         intervene: true,
-        duration: 10000,
+        duration: 6000,
       },
     },
     dificil: {
@@ -179,7 +179,7 @@ const modifierProbabilities = {
           "¡Mis circuitos están activos! ¡Una de tus ventajas ha sido anulada!",
         expression: "angry",
         intervene: true,
-        duration: 10000,
+        duration: 6000,
       },
     },
   },
@@ -314,7 +314,7 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
     }
     shouldIntervene = false;
     // Si no hay un modificador, asigna una duración por defecto
-    messageDuration = 3000;
+    messageDuration = 5000;
   }
 
   // Finalmente, muestra el mensaje, usando `interveneAi` o `setAiMessage` según corresponda.
@@ -329,11 +329,16 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
 
 // Sección 6: Función Unificada para Mensajes (Nueva)
 // Esta es la función que queremos que los minijuegos usen.
-const handleGameMessage = (message, expression, intervene = false) => {
+const handleGameMessage = (
+  message,
+  expression,
+  intervene = false,
+  duration = null
+) => {
   if (intervene) {
-    interveneAi(message, expression);
+    interveneAi(message, expression), duration;
   } else {
-    setAiMessage(message, expression);
+    setAiMessage(message, expression, duration);
   }
 };
 
