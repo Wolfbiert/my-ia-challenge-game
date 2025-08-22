@@ -14,47 +14,43 @@ const aiGameModifiers = ref({}); // Objeto que guarda los modificadores activos 
 
 // Estado para la intervención central de la IA
 const isAiIntervening = ref(false); // Bandera booleana para indicar si la IA está interviniendo (modo central).
-let interventionTimeout = null; // Variable para guardar el temporizador que oculta el mensaje de intervención.
+let messageTimeout = null; // Temporizador unificado para todos los mensajes.
 
-// Sección 2: Funciones de Control de Mensajes
-// Estas funciones son responsables de mostrar y ocultar los mensajes de la IA con un temporizador.
-// Son el corazón del sistema de diálogo.
+// Sección 2: Funciones de Control de Mensajes (CORREGIDAS)
 
 const setAiMessage = (message, expression = "normal", duration = 5000) => {
-  // Limpia cualquier temporizador de intervención que pueda estar activo.
-  clearTimeout(interventionTimeout);
-  // Asegura que el modo de intervención esté desactivado para mensajes normales.
+  // Limpia SIEMPRE el temporizador anterior para evitar solapamientos.
+  clearTimeout(messageTimeout);
   isAiIntervening.value = false;
 
-  // Asigna el nuevo mensaje y expresión a las variables de estado.
   aiMessage.value = message;
   aiExpression.value = expression;
 
-  // Si hay un mensaje, configura un temporizador para ocultarlo después de 'duration' milisegundos.
-  if (message) {
-    setTimeout(() => {
-      aiMessage.value = ""; // Borra el mensaje
-      aiExpression.value = "normal"; // Restablece la expresión a "normal"
+  if (message && duration) {
+    // Usa el temporizador unificado.
+    messageTimeout = setTimeout(() => {
+      aiMessage.value = "";
+      aiExpression.value = "normal";
     }, duration);
   }
 };
 
 const interveneAi = (message, expression = "normal", duration = 5000) => {
-  // Limpia cualquier temporizador anterior para evitar conflictos.
-  clearTimeout(interventionTimeout);
+  // Limpia SIEMPRE el temporizador anterior.
+  clearTimeout(messageTimeout);
 
-  // Activa el modo de intervención para que el sprite de la IA se mueva al centro.
   isAiIntervening.value = true;
-  // Asigna el mensaje y la expresión.
   aiMessage.value = message;
   aiExpression.value = expression;
 
-  // Configura un temporizador para desactivar la intervención y borrar el mensaje.
-  interventionTimeout = setTimeout(() => {
-    isAiIntervening.value = false;
-    aiMessage.value = "";
-    aiExpression.value = "normal";
-  }, duration);
+  if (message && duration) {
+    // Usa el temporizador unificado.
+    messageTimeout = setTimeout(() => {
+      isAiIntervening.value = false;
+      aiMessage.value = "";
+      aiExpression.value = "normal";
+    }, duration);
+  }
 };
 
 // Sección 3: Funciones de Control de Estado del Juego
@@ -327,18 +323,21 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
   }
 };
 
-// Sección 6: Función Unificada para Mensajes (Nueva)
-// Esta es la función que queremos que los minijuegos usen.
+// Sección 6: Función Unificada para Mensajes (CORREGIDA)
 const handleGameMessage = (
   message,
   expression,
   intervene = false,
-  duration = null
+  duration = 5000 // Ponemos 5000 como valor por defecto
 ) => {
+  // Si la duración que llega es null, usamos el por defecto.
+  const finalDuration = duration !== null ? duration : 5000;
+
   if (intervene) {
-    interveneAi(message, expression), duration;
+    // 👇 CORREGIDO: `finalDuration` se pasa como tercer argumento. 👇
+    interveneAi(message, expression, finalDuration);
   } else {
-    setAiMessage(message, expression, duration);
+    setAiMessage(message, expression, finalDuration);
   }
 };
 

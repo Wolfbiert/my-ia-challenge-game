@@ -593,14 +593,36 @@ export default {
       } else {
         currentRound.value++;
         if (currentRound.value <= totalRounds) {
+          // Si no es la última ronda, la reinicia
           await new Promise((resolve) => setTimeout(resolve, 1000));
           resetRound();
         } else {
-          handleGameMessage(
-            "¡Fin del juego! Resultado final. Puedes jugar de nuevo.",
-            "normal",
-            true // Intervención de la IA
-          ); // <-- USANDO EL ORQUESTADOR
+          // --- BLOQUE CORREGIDO ---
+          // Se acabaron las rondas, ahora determinamos el ganador por puntos.
+
+          if (playerWins.value > iaWins.value) {
+            // El jugador tiene más puntos
+            handleGameMessage(
+              "¡Fin de las rondas! ¡Has ganado por puntos! Excelente estrategia.",
+              "happy",
+              true // Intervención de la IA
+            );
+          } else if (iaWins.value > playerWins.value) {
+            // La IA tiene más puntos
+            handleGameMessage(
+              "Se acabaron los asaltos... He ganado yo esta vez por puntos. ¡Mejor suerte la próxima!",
+              "angry",
+              true // Intervención de la IA
+            );
+          } else {
+            // Es un empate real
+            handleGameMessage(
+              "¡Increíble! Después de todas las rondas, hemos empatado. Eres un rival formidable.",
+              "normal",
+              true // Intervención de la IA
+            );
+          }
+
           gameFinished.value = true;
           emit("round-finished", {
             playerScore: playerWins.value,
