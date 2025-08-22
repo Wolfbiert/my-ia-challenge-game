@@ -128,9 +128,8 @@ export default {
 }
 /* --- NUEVO: Contenedor para el sprite y la burbuja --- */
 .ia-sprite-wrapper {
-  display: flex;
-  align-items: flex-end; /* Alinea la burbuja con la parte inferior del sprite */
-  gap: 15px; /* Espacio entre el sprite y la burbuja */
+  position: relative;
+  align-items: center; /* Alinea la burbuja con la parte inferior del sprite */
   pointer-events: none; /* Permite clics dentro de este contenedor */
 }
 
@@ -169,14 +168,15 @@ export default {
   padding: 10px 15px;
   border-radius: 20px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  margin-right: 20px;
-  margin-bottom: 10px;
   max-width: 200px;
   text-align: center;
   position: relative;
   opacity: 0;
   animation: fadeInBubble 0.3s forwards;
   pointer-events: auto;
+  position: absolute; /* ¡Ahora posicionamiento absoluto! */
+  top: 100px; /* Ajusta la distancia desde la parte superior del wrapper */
+  right: 200px; /* Ajusta la distancia desde la derecha del wrapper */
 }
 
 .ia-dialog-bubble p {
@@ -254,13 +254,13 @@ export default {
 /* --- KEYFRAMES DE ANIMACIÓN --- */
 @keyframes float {
   0% {
-    transform: translateY(0px);
+    transform: translateY(0px) rotateZ(0deg);
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-8px) rotateZ(5deg);
   }
   100% {
-    transform: translateY(0px);
+    transform: translateY(0px) rotateZ(0deg);
   }
 }
 
