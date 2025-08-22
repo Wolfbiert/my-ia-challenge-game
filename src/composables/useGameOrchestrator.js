@@ -137,7 +137,7 @@ const modifierProbabilities = {
           "¡Humano! ¡Mi influencia bloquea una de tus habilidades esta ronda!",
         expression: "thinking",
         intervene: true,
-        duration: 6000,
+        duration: 10000,
       },
     },
     dificil: {
@@ -148,7 +148,7 @@ const modifierProbabilities = {
           "¡Mis circuitos están activos! ¡Una de tus ventajas ha sido anulada!",
         expression: "angry",
         intervene: true,
-        duration: 6000,
+        duration: 10000,
       },
     },
   },

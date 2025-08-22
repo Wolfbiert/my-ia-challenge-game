@@ -207,10 +207,6 @@ export default {
   right: unset;
   bottom: unset;
 
-  background-color: rgba(0, 0, 0, 0.7);
-  border-radius: 15px;
-  padding: 20px;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
   z-index: 1000;
   pointer-events: auto;
   flex-direction: column;
@@ -222,23 +218,14 @@ export default {
 }
 
 .ia-sprite-container.is-intervening .ia-sprite {
-  width: 200px;
+  width: 500px;
   animation: none;
-  margin-bottom: 20px;
-  /* Se reinicia la escala al intervenir para que el width sea el que mande */
-  scale: 1;
-  /* El sprite permite clics en modo de intervención */
-  pointer-events: auto;
 }
 
 .ia-sprite-container.is-intervening .ia-dialog-bubble {
   margin-top: -20px;
   margin-bottom: 0;
-  background-color: rgba(224, 255, 224, 0.9);
-  color: #105010;
-  box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
-  border: 2px solid #00aa00;
-  max-width: 350px;
+  max-width: 450px;
   text-align: center;
 }
 
