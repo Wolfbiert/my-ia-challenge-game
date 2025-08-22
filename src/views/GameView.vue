@@ -217,22 +217,29 @@ export default {
       let aiReactionMessage = "";
       let aiReactionExpression = "normal";
 
-      if (payload.winner === "player") {
-        playerScore.value++;
+      // --- LÓGICA CORREGIDA ---
+      // Comparamos los puntajes del payload en lugar de buscar "payload.winner"
+      if (payload.playerScore > payload.iaScore) {
+        playerScore.value++; // Suma un punto al marcador global del jugador
         aiReactionMessage = "¡Rayos! Ganaste esta ronda. No te confíes.";
         aiReactionExpression = "sad";
-        console.log("¡Ganó el jugador! Puntuación:", playerScore.value);
-      } else if (payload.winner === "ia") {
-        iaScore.value++;
+        console.log(
+          "¡Ganó el jugador la ronda! Puntuación global:",
+          playerScore.value
+        );
+      } else if (payload.iaScore > payload.playerScore) {
+        iaScore.value++; // Suma un punto al marcador global de la IA
         aiReactionMessage = "¡Ja! ¡Sabía que ganaría! El futuro es mío.";
         aiReactionExpression = "happy";
-        console.log("¡Ganó la IA! Puntuación:", iaScore.value);
+        console.log("¡Ganó la IA la ronda! Puntuación global:", iaScore.value);
       } else {
+        // Si los puntajes son iguales, es un empate y nadie suma puntos.
         aiReactionMessage =
           "¡Un empate! Interesante... La próxima será decisiva.";
         aiReactionExpression = "thinking";
         console.log("Ronda empatada.");
       }
+      // --- FIN DE LA LÓGICA CORREGIDA ---
 
       if (!isAiIntervening.value) {
         setAiMessage(aiReactionMessage, aiReactionExpression);
