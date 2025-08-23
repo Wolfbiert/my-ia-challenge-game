@@ -1,6 +1,8 @@
 {
   "name": "my-ia-challenge-game",
   "version": "0.1.0",
+  "description": "Un desafío de minijuegos contra una IA.",
+  "author": "Agustin Massoni",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
