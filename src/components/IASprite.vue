@@ -20,41 +20,25 @@
 <script>
 import { computed, ref, onUnmounted, watch } from "vue";
 
-/**
- * @name IASprite
- * @description
- * Componente de presentación encargado de renderizar el sprite visual de la IA.
- * Gestiona dinámicamente la imagen del sprite según la expresión facial,
- * y controla su posición y movimiento "flotante" en la pantalla, deteniéndolo
- * durante las intervenciones especiales de la IA.
- */
 export default {
   name: "IASprite",
   props: {
-    // El mensaje de texto actual que la IA está diciendo.
     message: {
       type: String,
       default: "",
     },
-    // La expresión facial que debe mostrar el sprite.
     expression: {
       type: String,
       default: "normal",
       validator: (value) =>
         ["normal", "happy", "sad", "angry", "thinking"].includes(value),
     },
-    // Bandera que indica si la IA está en modo 'intervención' (centrada y sin movimiento).
     isIntervening: {
       type: Boolean,
       default: false,
     },
   },
   setup(props) {
-    /**
-     * Propiedad computada que determina dinámicamente la ruta del archivo de imagen a mostrar
-     * basándose en la 'expression' recibida como prop.
-     * @returns {string} La ruta completa a la imagen del sprite.
-     */
     const aiSpriteSrc = computed(() => {
       switch (props.expression) {
         case "happy":
@@ -70,32 +54,18 @@ export default {
       }
     });
 
-    /**
-     * Propiedad computada que genera un texto alternativo descriptivo para la imagen,
-     * mejorando la accesibilidad.
-     * @returns {string} El texto 'alt' para la etiqueta <img>.
-     */
     const altText = computed(
       () => `Sprite de la IA en estado ${props.expression}`
     );
 
-    // --- Lógica de Movimiento Flotante ---
-
-    /** @type {import('vue').Ref<number>} La posición CSS 'top' del sprite. */
     const topPosition = ref(20);
-    /** @type {import('vue').Ref<number>} La posición CSS 'right' del sprite. */
     const rightPosition = ref(20);
-    /** @type {number|null} Referencia al intervalo de movimiento para poder limpiarlo. */
     let movementInterval;
 
-    /**
-     * Calcula una nueva posición aleatoria para el sprite dentro de los límites de la ventana.
-     */
     const generateRandomPosition = () => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
-      // Dimensiones aproximadas del sprite para evitar que se salga de la pantalla
       const spriteWidth = 300;
       const spriteHeight = 300;
 
@@ -110,51 +80,34 @@ export default {
       rightPosition.value = newRight;
     };
 
-    /**
-     * Inicia el movimiento flotante del sprite, cambiando su posición cada 4 segundos.
-     */
     const startMovement = () => {
       if (!movementInterval) {
-        generateRandomPosition(); // Se posiciona una vez al inicio
+        generateRandomPosition();
         movementInterval = setInterval(generateRandomPosition, 4000);
       }
     };
 
-    /**
-     * Detiene el movimiento flotante del sprite limpiando el intervalo.
-     */
     const stopMovement = () => {
       clearInterval(movementInterval);
       movementInterval = null;
     };
 
-    /**
-     * Observador (watcher) que reacciona a los cambios en la prop 'isIntervening'.
-     * Es el mecanismo que controla cuándo el sprite debe flotar o quedarse quieto.
-     */
     watch(
       () => props.isIntervening,
       (isIntervening) => {
         if (isIntervening) {
-          // Si la IA está interviniendo, se detiene el movimiento.
           stopMovement();
         } else {
-          // Si la IA no está interviniendo, comienza a moverse.
           startMovement();
         }
       },
-      { immediate: true } // 'immediate: true' hace que se ejecute una vez al crear el componente.
+      { immediate: true }
     );
 
-    /**
-     * Hook de ciclo de vida que se ejecuta antes de que el componente sea destruido.
-     * Es crucial para limpiar el intervalo y evitar fugas de memoria (memory leaks).
-     */
     onUnmounted(() => {
       stopMovement();
     });
 
-    // Se exponen las propiedades computadas y el estado de la posición para que el <template> pueda usarlos.
     return {
       aiSpriteSrc,
       altText,

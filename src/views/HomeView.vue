@@ -64,35 +64,21 @@
 </template>
 
 <script>
-// Importaciones de Vue, el router y el composable de audio
 import { ref, onMounted, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter } from "vue-router"; // Para navegar entre vistas
 import useAudio from "@/composables/useAudio.js";
 
-/**
- * @name HomeView
- * @description
- * Es la pantalla de inicio y menú principal del juego. Permite al jugador
- * seleccionar la dificultad, iniciar el desafío y controlar la música.
- * Gestiona el progreso del jugador (dificultades desbloqueadas) usando
- * el `localStorage` del navegador.
- */
 export default {
   name: "HomeView",
   setup() {
-    const router = useRouter(); // Instancia del router para la navegación
-    const { isMusicEnabled, toggleMusic } = useAudio(); // Estado y control de la música desde un composable
+    const router = useRouter(); // Instancia del router
+    const selectedDifficulty = ref("facil"); // Dificultad seleccionada por el jugador
+    const unlockedDifficulties = ref(["facil"]); // Niveles desbloqueados
+    const { isMusicEnabled, toggleMusic } = useAudio();
 
-    // --- Estado Reactivo de la Vista ---
-    const selectedDifficulty = ref("facil"); // Dificultad seleccionada actualmente
-    const unlockedDifficulties = ref(["facil"]); // Array con los niveles que el jugador ha desbloqueado
+    const STORAGE_KEY = "iaChallengeGameProgress"; // Clave para localStorage
 
-    const STORAGE_KEY = "iaChallengeGameProgress"; // Clave única para guardar/cargar el progreso en localStorage
-
-    /**
-     * Carga el progreso del jugador (dificultades desbloqueadas) desde el localStorage del navegador.
-     * Maneja casos donde los datos no existen o están corruptos.
-     */
+    // Carga el progreso guardado desde localStorage
     const loadProgress = () => {
       const savedProgress = localStorage.getItem(STORAGE_KEY);
       if (savedProgress) {
@@ -100,28 +86,30 @@ export default {
           const parsedProgress = JSON.parse(savedProgress);
           if (parsedProgress.unlockedDifficulties) {
             unlockedDifficulties.value = parsedProgress.unlockedDifficulties;
+            // Asegurar que la dificultad seleccionada esté desbloqueada
+            if (
+              !unlockedDifficulties.value.includes(selectedDifficulty.value)
+            ) {
+              selectedDifficulty.value = "facil"; // Vuelve a fácil si la seleccionada ya no está disponible (ej. si se borró dificil manualmente)
+            }
           }
         } catch (e) {
           console.error("Error al parsear el progreso guardado:", e);
-          localStorage.removeItem(STORAGE_KEY); // Limpia datos corruptos para evitar futuros errores
+          localStorage.removeItem(STORAGE_KEY); // Limpia datos corruptos
         }
       }
     };
 
-    /**
-     * Guarda el progreso actual (las dificultades desbloqueadas) en el localStorage.
-     */
+    // Guarda el progreso en localStorage
     const saveProgress = () => {
       const progress = {
         unlockedDifficulties: unlockedDifficulties.value,
+        // Aquí podrías guardar otras cosas como puntajes altos, etc.
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
     };
 
-    /**
-     * Añade un nuevo nivel de dificultad a la lista de desbloqueados y guarda el progreso.
-     * @param {string} level - El nivel de dificultad a desbloquear ('normal' o 'dificil').
-     */
+    // Desbloquea una dificultad específica y guarda
     const unlockDifficulty = (level) => {
       if (!unlockedDifficulties.value.includes(level)) {
         unlockedDifficulties.value.push(level);
@@ -129,19 +117,27 @@ export default {
       }
     };
 
-    /**
-     * Establece la dificultad seleccionada por el jugador.
-     * @param {string} difficulty - La dificultad elegida ('facil', 'normal', 'dificil').
-     */
+    // Selecciona una dificultad si está desbloqueada
     const selectDifficulty = (difficulty) => {
       if (unlockedDifficulties.value.includes(difficulty)) {
         selectedDifficulty.value = difficulty;
+      } else {
+        alert(
+          `¡Tienes que completar el nivel "${getPreviousDifficulty(
+            difficulty
+          )}" para desbloquear "${difficulty}"!`
+        );
       }
     };
 
-    /**
-     * Navega a la vista del juego (GameView) pasando la dificultad seleccionada como un parámetro en la URL.
-     */
+    // Función auxiliar para obtener la dificultad anterior
+    const getPreviousDifficulty = (current) => {
+      if (current === "normal") return "facil";
+      if (current === "dificil") return "normal";
+      return null; // 'facil' no tiene anterior
+    };
+
+    // Inicia el juego y navega a GameView, pasando la dificultad
     const startGame = () => {
       router.push({
         name: "game",
@@ -149,34 +145,27 @@ export default {
       });
     };
 
-    /**
-     * Hook del ciclo de vida de Vue. Se ejecuta cuando el componente se ha montado.
-     * Carga el progreso del jugador y establece un listener global para el evento 'unlockDifficulty'.
-     */
+    // Se ejecuta cuando el componente HomeView se monta
     onMounted(() => {
       loadProgress();
-      // Este listener permite que GameView se comunique con HomeView para desbloquear niveles,
-      // incluso si no son componentes padre-hijo directos.
+      // Escuchar eventos personalizados desde GameView para desbloquear dificultades
       window.addEventListener("unlockDifficulty", (event) => {
         const levelToUnlock = event.detail.level;
         unlockDifficulty(levelToUnlock);
       });
     });
 
-    /**
-     * Hook del ciclo de vida de Vue. Se ejecuta justo antes de que el componente se desmonte.
-     * Es una buena práctica remover listeners globales aquí para prevenir fugas de memoria.
-     */
+    // Limpieza: importante si usas addEventListener en window
+    // Este hook se ejecuta cuando el componente está a punto de ser "desmontado" o destruido
+    // Es una buena práctica para remover listeners y evitar fugas de memoria.
     onUnmounted(() => {
-      // Se debe pasar la misma función que se usó en addEventListener, por lo que la definimos por separado.
-      const handleUnlock = (event) => {
+      // Asegúrate de importar onUnmounted de 'vue'
+      window.removeEventListener("unlockDifficulty", (event) => {
         const levelToUnlock = event.detail.level;
         unlockDifficulty(levelToUnlock);
-      };
-      window.removeEventListener("unlockDifficulty", handleUnlock);
+      });
     });
 
-    // Se exponen las variables y funciones que necesita la plantilla <template>
     return {
       selectedDifficulty,
       unlockedDifficulties,

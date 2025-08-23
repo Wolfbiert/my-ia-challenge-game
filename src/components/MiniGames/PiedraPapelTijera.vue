@@ -212,71 +212,57 @@ import { ref, onMounted, watch, nextTick } from "vue";
 import { Howl } from "howler";
 import useGameOrchestrator from "@/composables/useGameOrchestrator.js";
 
-/**
- * @name PiedraPapelTijera
- * @description Componente para el minijuego de Piedra, Papel o Tijera.
- * Incluye un sistema de juego por rondas, habilidades especiales para el jugador,
- * una IA con diferentes niveles de dificultad y comunicación constante con el
- * orquestador central para mensajes y modificadores.
- */
 export default {
   name: "PiedraPapelTijera",
-  emits: ["round-finished"], // Define el evento para notificar al padre sobre el fin del juego
+  emits: ["round-finished"], // <-- 'update-ia-message' eliminado
   props: {
-    // La dificultad actual del juego, recibida desde GameView
     difficulty: {
       type: String,
       default: "normal",
       validator: (value) => ["facil", "normal", "dificil"].includes(value),
     },
-    // Modificadores de la IA activos para esta ronda, recibidos desde GameView
     aiModifiers: {
       type: Object,
       default: () => ({}),
     },
   },
   setup(props, { emit }) {
-    // Importa la funcionalidad del orquestador de la IA
-    const { handleGameMessage, aiGameModifiers } = useGameOrchestrator();
+    const { handleGameMessage, aiGameModifiers, decideAndApplyAiModifiers } =
+      useGameOrchestrator(); // <-- Usando la función del orquestador
 
-    // --- Estado Reactivo del Juego ---
-    const playerChoice = ref(null); // Elección del jugador ('rock', 'paper', 'scissors')
-    const iaChoice = ref(null); // Elección de la IA
-    const result = ref(""); // Texto del resultado de la ronda (ej. "¡Ganaste!")
-    const choices = ["rock", "paper", "scissors"]; // Opciones de juego disponibles
+    const playerChoice = ref(null);
+    const iaChoice = ref(null);
+    const result = ref("");
+    const choices = ["rock", "paper", "scissors"];
 
-    // Estado para controlar el flujo visual y lógico de la partida
-    const gameState = ref("playerChoice"); // ('playerChoice', 'iaThinking', 'iaChosen', 'showingResult', 'roundOver')
-    const iaThinkingDisplayChoice = ref(null); // Elección que se muestra mientras la IA "piensa"
-    let iaThinkingInterval = null; // Intervalo para la animación de pensamiento de la IA
-    const iaHasChosen = ref(false); // Bandera para activar la animación de revelación de la IA
-    const showExplosion = ref(false); // Bandera para mostrar el GIF de explosión
-    const roundLoser = ref(null); // Almacena quién perdió la ronda ('player' o 'ia')
-    const explosionTimestamp = ref(Date.now()); // Timestamp para forzar la recarga del GIF de explosión
+    const gameState = ref("playerChoice");
+    const iaThinkingDisplayChoice = ref(null);
+    let iaThinkingInterval = null;
+    const iaHasChosen = ref(false);
+    const showExplosion = ref(false);
+    const roundLoser = ref(null);
+    const explosionTimestamp = ref(Date.now());
 
-    // Puntuación y control de rondas dentro del minijuego
-    const playerWins = ref(0); // Rondas ganadas por el jugador
-    const iaWins = ref(0); // Rondas ganadas por la IA
-    const totalRounds = 5; // Número total de rondas para ganar el minijuego
-    const currentRound = ref(1); // Ronda actual
-    const gameFinished = ref(false); // Bandera que indica si el minijuego ha terminado
+    const playerWins = ref(0);
+    const iaWins = ref(0);
+    const totalRounds = 5;
+    const currentRound = ref(1);
+    const gameFinished = ref(false);
 
-    // Estado de las habilidades especiales del jugador
     const abilitiesUsed = ref({
       desestabilizar: false,
       bloqueo: false,
       acertijo: false,
     });
-    const activeAbility = ref(null); // Habilidad activa en la ronda actual
-    const iaBlockedChoice = ref(null); // Qué jugada se le bloqueó a la IA
-    const abilityUsedThisRound = ref(false); // Previene usar más de una habilidad por ronda
-    const blockedPlayerAbility = ref(null); // Almacena si la IA ha bloqueado una habilidad del jugador
+    const activeAbility = ref(null);
+    const iaBlockedChoice = ref(null);
+    const abilityUsedThisRound = ref(false);
 
-    // Observa los modificadores de la IA que vienen del orquestador
+    const blockedPlayerAbility = ref(null);
+
     watch(
       () => aiGameModifiers.value,
       (newModifiers) => {
-        // Si el modificador 'blockPlayerAbility' está activo, la IA bloquea una habilidad al azar
         if (newModifiers.blockPlayerAbility) {
           const possibleAbilities = ["desestabilizar", "bloqueo", "acertijo"];
           const abilityToBlock =
@@ -290,15 +276,12 @@ export default {
       },
       { immediate: true, deep: true }
     );
-
-    // Estado del temporizador de ronda
     const timeRemaining = ref(0);
     const timeBarWidth = ref(100);
     let timerInterval = null;
     let maxTimePerRound = 0;
-    const riddleActive = ref(false); // Bandera para la habilidad "acertijo"
+    const riddleActive = ref(false);
 
-    // Instancias de Howler.js para los efectos de sonido
     const explosionSound = new Howl({
       src: ["/sounds/explosion.mp3"],
       volume: 0.5,
@@ -308,15 +291,10 @@ export default {
       volume: 0.7,
     });
 
-    // Parámetros de la lógica de la IA (se configuran por dificultad)
-    let iaPredictionChance = 0; // Probabilidad de que la IA prediga y contrarreste la jugada del jugador
-    let iaThinkingDuration = 0; // Tiempo en ms que la IA "piensa"
-    let iaPatternLogic = "random"; // Lógica de patrones de la IA
+    let iaPredictionChance = 0;
+    let iaThinkingDuration = 0;
+    let iaPatternLogic = "random";
 
-    /**
-     * Establece los parámetros del juego y de la IA según la dificultad.
-     * @param {string} difficulty - La dificultad actual.
-     */
     const setGameParameters = (difficulty) => {
       switch (difficulty) {
         case "facil":
@@ -340,9 +318,6 @@ export default {
       }
     };
 
-    /**
-     * Inicia una nueva partida del minijuego, reseteando todos los marcadores y estados.
-     */
     const startGame = () => {
       playerWins.value = 0;
       iaWins.value = 0;
@@ -359,9 +334,6 @@ export default {
       resetRound();
     };
 
-    /**
-     * Resetea el estado para el inicio de una nueva ronda.
-     */
     const resetRound = () => {
       playerChoice.value = null;
       iaChoice.value = null;
@@ -369,7 +341,7 @@ export default {
       handleGameMessage(
         `Ronda ${currentRound.value} de ${totalRounds}. Elige tu jugada...`,
         "info"
-      );
+      ); // <-- USANDO EL ORQUESTADOR
       gameState.value = "playerChoice";
       iaThinkingDisplayChoice.value = null;
       iaHasChosen.value = false;
@@ -383,7 +355,12 @@ export default {
       setGameParameters(props.difficulty);
       blockedPlayerAbility.value = null;
 
-      // Limpia el intervalo de la animación de pensamiento si quedó activo
+      decideAndApplyAiModifiers(
+        "PiedraPapelTijera",
+        playerWins.value,
+        iaWins.value
+      );
+
       if (iaThinkingInterval) {
         clearInterval(iaThinkingInterval);
         iaThinkingInterval = null;
@@ -391,15 +368,6 @@ export default {
       startTimer();
     };
 
-    /**
-     * Contiene la lógica ("cerebro") para determinar la elección de la IA.
-     * Considera la predicción, habilidades activas y patrones de dificultad.
-     * @param {string|null} playerChoiceMade - La elección del jugador.
-     * @param {string|null} currentAbility - La habilidad activa.
-     * @param {number} actualIaPredictionChance - La probabilidad de predicción.
-     * @param {number} iaErrorChance - La probabilidad de que la IA cometa un error intencional (habilidad Desestabilizar).
-     * @returns {string} La elección final de la IA ('rock', 'paper', o 'scissors').
-     */
     const getIaChoice = (
       playerChoiceMade,
       currentAbility,
@@ -409,7 +377,6 @@ export default {
       let chosenIaMove;
       const availableChoices = [...choices];
 
-      // Si la habilidad 'bloqueo' está activa, elimina la opción bloqueada de las elecciones posibles de la IA
       if (currentAbility === "bloqueo" && iaBlockedChoice.value) {
         const indexToRemove = availableChoices.indexOf(iaBlockedChoice.value);
         if (indexToRemove > -1) {
@@ -419,41 +386,57 @@ export default {
 
       const randomNumber = Math.random();
 
-      // Lógica para la habilidad 'Desestabilizar' (iaErrorChance > 0)
       if (iaErrorChance > 0 && playerChoiceMade) {
         if (randomNumber < iaErrorChance) {
-          // La IA elige intencionalmente la opción que pierde contra el jugador
           if (playerChoiceMade === "rock") chosenIaMove = "scissors";
           else if (playerChoiceMade === "paper") chosenIaMove = "rock";
           else if (playerChoiceMade === "scissors") chosenIaMove = "paper";
+
+          if (
+            currentAbility === "bloqueo" &&
+            iaBlockedChoice.value === chosenIaMove
+          ) {
+            const alternatives = availableChoices.filter(
+              (c) => c !== iaBlockedChoice.value
+            );
+            if (alternatives.length > 0) {
+              chosenIaMove =
+                alternatives[Math.floor(Math.random() * alternatives.length)];
+            } else {
+              chosenIaMove =
+                choices[Math.floor(Math.random() * choices.length)];
+            }
+          }
           return chosenIaMove;
         }
       }
 
-      // Lógica de predicción normal
       if (randomNumber < actualIaPredictionChance && playerChoiceMade) {
-        // La IA elige la opción que gana contra el jugador
         if (playerChoiceMade === "rock") chosenIaMove = "paper";
         else if (playerChoiceMade === "paper") chosenIaMove = "scissors";
         else if (playerChoiceMade === "scissors") chosenIaMove = "rock";
       }
 
-      // Si no hubo predicción, elige basado en patrones de dificultad
       if (!chosenIaMove) {
-        if (iaPatternLogic === "complex-pattern") {
-          // En difícil, tiene una preferencia por ciertas jugadas
+        if (iaPatternLogic === "random") {
+          chosenIaMove =
+            availableChoices[
+              Math.floor(Math.random() * availableChoices.length)
+            ];
+        } else if (iaPatternLogic === "complex-pattern") {
           const bias = Math.random();
           if (bias < 0.5 && availableChoices.includes("paper"))
             chosenIaMove = "paper";
           else if (bias < 0.75 && availableChoices.includes("rock"))
             chosenIaMove = "rock";
+          else if (availableChoices.includes("scissors"))
+            chosenIaMove = "scissors";
           else
             chosenIaMove =
               availableChoices[
                 Math.floor(Math.random() * availableChoices.length)
               ];
         } else {
-          // En fácil/normal, la elección es completamente aleatoria
           chosenIaMove =
             availableChoices[
               Math.floor(Math.random() * availableChoices.length)
@@ -461,7 +444,6 @@ export default {
         }
       }
 
-      // Se asegura de que la elección final no sea una que esté bloqueada
       if (
         currentAbility === "bloqueo" &&
         chosenIaMove === iaBlockedChoice.value
@@ -474,49 +456,42 @@ export default {
             alternativeChoices[
               Math.floor(Math.random() * alternativeChoices.length)
             ];
+        } else {
+          chosenIaMove = choices[Math.floor(Math.random() * choices.length)];
         }
       }
 
       return chosenIaMove;
     };
 
-    /**
-     * Pre-calcula la elección de la IA para la habilidad 'Acertijo'.
-     */
     let preChosenIaMove = null;
     const preCalculateIaChoice = () => {
       preChosenIaMove = getIaChoice(null, null, iaPredictionChance, 0);
     };
 
-    /**
-     * Es la función principal que ejecuta el flujo de una ronda completa.
-     * @param {string} choice - La elección del jugador.
-     */
     const playRound = async (choice) => {
       stopTimer();
       playerChoice.value = choice;
-      handleGameMessage(`Tú elegiste: ${choice}...`, "thinking");
+      handleGameMessage(`Tú elegiste: ${choice}...`, "thinking"); // <-- USANDO EL ORQUESTADOR
       gameState.value = "iaThinking";
       showExplosion.value = false;
       iaHasChosen.value = false;
       roundLoser.value = null;
 
-      // Notificaciones de habilidades activas
       if (activeAbility.value === "desestabilizar") {
         handleGameMessage(
           "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...",
           "sad"
-        );
+        ); // <-- USANDO EL ORQUESTADOR
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } else if (activeAbility.value === "bloqueo") {
         handleGameMessage(
           `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`,
           "angry"
-        );
+        ); // <-- USANDO EL ORQUESTADOR
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      // Animación de la IA "pensando"
       let currentChoiceIndex = 0;
       iaThinkingInterval = setInterval(() => {
         iaThinkingDisplayChoice.value = choices[currentChoiceIndex];
@@ -525,12 +500,12 @@ export default {
       await new Promise((resolve) => setTimeout(resolve, iaThinkingDuration));
       clearInterval(iaThinkingInterval);
 
-      // Determina la elección final de la IA basado en habilidades activas
       let finalIaMove;
+
       if (activeAbility.value === "acertijo") {
-        finalIaMove = preChosenIaMove; // Usa la elección pre-calculada
+        finalIaMove = preChosenIaMove;
       } else if (activeAbility.value === "desestabilizar") {
-        finalIaMove = getIaChoice(playerChoice.value, null, 0, 0.75); // 75% de chance de error
+        finalIaMove = getIaChoice(playerChoice.value, null, 0, 0.75);
       } else {
         finalIaMove = getIaChoice(
           playerChoice.value,
@@ -546,11 +521,10 @@ export default {
       iaHasChosen.value = true;
       await new Promise((resolve) => setTimeout(resolve, 600));
 
-      // Compara las elecciones y determina el ganador de la ronda
       let roundWinner;
       if (playerChoice.value === iaChoice.value) {
         result.value = "¡Empate!";
-        handleGameMessage("¡Empate! Un digno rival.", "normal");
+        handleGameMessage("¡Empate! Un digno rival.", "normal"); // <-- USANDO EL ORQUESTADOR
         roundWinner = "draw";
         roundLoser.value = null;
       } else if (
@@ -559,13 +533,13 @@ export default {
         (playerChoice.value === "scissors" && iaChoice.value === "paper")
       ) {
         result.value = "¡Ganaste esta ronda!";
-        handleGameMessage("¡Ganaste esta ronda! ¡Maldición!", "sad");
+        handleGameMessage("¡Ganaste esta ronda! ¡Maldición!", "sad"); // <-- USANDO EL ORQUESTADOR
         roundWinner = "player";
         roundLoser.value = "ia";
         playerWins.value++;
       } else {
         result.value = "¡Perdiste esta ronda!";
-        handleGameMessage("¡Perdiste! ¡Gané esta vez!", "happy");
+        handleGameMessage("¡Perdiste! ¡Gané esta vez!", "happy"); // <-- USANDO EL ORQUESTADOR
         roundWinner = "ia";
         roundLoser.value = "player";
         iaWins.value++;
@@ -574,15 +548,16 @@ export default {
       gameState.value = "showingResult";
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Muestra la animación de explosión si no hubo empate
       if (roundWinner !== "draw") {
         explosionTimestamp.value = Date.now();
         showExplosion.value = true;
         await nextTick();
         await new Promise((resolve) => setTimeout(resolve, 50));
         explosionSound.play();
+
         await new Promise((resolve) => setTimeout(resolve, 300));
         gameState.value = "roundOver";
+
         await new Promise((resolve) => setTimeout(resolve, 1200));
         showExplosion.value = false;
       } else {
@@ -593,14 +568,12 @@ export default {
 
       riddleActive.value = false;
 
-      // --- Lógica de fin de partida del minijuego ---
-      // Revisa si alguien alcanzó la cantidad de victorias necesarias
       if (playerWins.value === Math.ceil(totalRounds / 2)) {
         handleGameMessage(
           "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!",
           "happy",
-          true
-        );
+          true // Intervención de la IA
+        ); // <-- USANDO EL ORQUESTADOR
         gameFinished.value = true;
         emit("round-finished", {
           playerScore: playerWins.value,
@@ -610,40 +583,46 @@ export default {
         handleGameMessage(
           "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera.",
           "angry",
-          true
-        );
+          true // Intervención de la IA
+        ); // <-- USANDO EL ORQUESTADOR
         gameFinished.value = true;
         emit("round-finished", {
           playerScore: playerWins.value,
           iaScore: iaWins.value,
         });
       } else {
-        // Si nadie ha ganado, avanza a la siguiente ronda o termina si se acabaron
         currentRound.value++;
         if (currentRound.value <= totalRounds) {
+          // Si no es la última ronda, la reinicia
           await new Promise((resolve) => setTimeout(resolve, 1000));
           resetRound();
         } else {
-          // Se acabaron las rondas, determina el ganador por puntos
+          // --- BLOQUE CORREGIDO ---
+          // Se acabaron las rondas, ahora determinamos el ganador por puntos.
+
           if (playerWins.value > iaWins.value) {
+            // El jugador tiene más puntos
             handleGameMessage(
               "¡Fin de las rondas! ¡Has ganado por puntos! Excelente estrategia.",
               "happy",
-              true
+              true // Intervención de la IA
             );
           } else if (iaWins.value > playerWins.value) {
+            // La IA tiene más puntos
             handleGameMessage(
               "Se acabaron los asaltos... He ganado yo esta vez por puntos. ¡Mejor suerte la próxima!",
               "angry",
-              true
+              true // Intervención de la IA
             );
           } else {
+            // Es un empate real
             handleGameMessage(
               "¡Increíble! Después de todas las rondas, hemos empatado. Eres un rival formidable.",
               "normal",
-              true
+              true // Intervención de la IA
             );
           }
+
           gameFinished.value = true;
           emit("round-finished", {
             playerScore: playerWins.value,
@@ -653,24 +632,20 @@ export default {
       }
     };
 
-    /**
-     * Gestiona el uso de una habilidad especial por parte del jugador.
-     * @param {string} abilityName - El nombre de la habilidad a usar.
-     * @param {string|null} blockedChoice - La elección a bloquear (solo para la habilidad 'bloqueo').
-     */
     const useAbility = (abilityName, blockedChoice = null) => {
-      // Validaciones para el uso de habilidades
+      // NUEVA LÍNEA para verificar si la habilidad está bloqueada por la IA
       if (blockedPlayerAbility.value === abilityName) {
         handleGameMessage(
           `¡Habilidad "${abilityName}" está bloqueada por la IA esta ronda!`,
           "angry"
-        );
+        ); // <-- USANDO EL ORQUESTADOR
         return;
       }
       if (abilityUsedThisRound.value) {
-        handleGameMessage("Ya has usado una habilidad en esta ronda.", "sad");
+        handleGameMessage("Ya has usado una habilidad en esta ronda.", "sad"); // <-- USANDO EL ORQUESTADOR
         return;
       }
+
       if (
         abilitiesUsed.value[abilityName] ||
         gameState.value !== "playerChoice"
@@ -678,61 +653,70 @@ export default {
         handleGameMessage(
           `Ya usaste la habilidad "${abilityName}" o no es el momento.`,
           "sad"
-        );
+        ); // <-- USANDO EL ORQUESTADOR
         return;
       }
 
-      // Activa la habilidad
       abilitiesUsed.value[abilityName] = true;
       activeAbility.value = abilityName;
       abilityUsedThisRound.value = true;
       abilitySound.play();
 
-      // Lógica específica para cada habilidad
       if (abilityName === "bloqueo") {
         iaBlockedChoice.value = blockedChoice;
         handleGameMessage(
           `¡Habilidad 'Bloqueo' activada! La IA no podrá usar ${blockedChoice} esta ronda. Elige tu jugada.`,
           "thinking"
-        );
+        ); // <-- USANDO EL ORQUESTADOR
       } else if (abilityName === "desestabilizar") {
         handleGameMessage(
           `¡Habilidad 'Desestabilizar' activada! La IA tiene una alta probabilidad de equivocarse esta ronda. Elige tu jugada.`,
           "thinking"
-        );
+        ); // <-- USANDO EL ORQUESTADOR
       } else if (abilityName === "acertijo") {
         const riddle = getRiddle(preChosenIaMove, props.difficulty);
-        handleGameMessage(`Acertijo de la IA: "${riddle}"`, "thinking");
+        handleGameMessage(`Acertijo de la IA: "${riddle}"`, "thinking"); // <-- USANDO EL ORQUESTADOR
         riddleActive.value = true;
       }
     };
 
-    /**
-     * Devuelve el texto de un acertijo basado en la elección pre-calculada de la IA.
-     * @param {string} iaChoice - La elección de la IA.
-     * @param {string} difficulty - La dificultad actual.
-     * @returns {string} El acertijo.
-     */
     const getRiddle = (iaChoice, difficulty) => {
       const riddles = {
-        /* ... objeto con los textos de los acertijos ... */
+        rock: {
+          facil: "Soy fuerte y rompo la madera. ¿Qué soy?",
+          normal:
+            "Mi núcleo es duro, pero mi superficie puede ser pulida. No me doblo fácilmente.",
+          dificil:
+            "En el arte de los encuentros, anulo lo afilado y soy la base de toda construcción. Soy el principio inmóvil.",
+        },
+        paper: {
+          facil: "Me usas para escribir y me doblo fácilmente. ¿Qué soy?",
+          normal:
+            "Puedo cubrir lo más duro y envolver lo que se afila. Me pliego con facilidad.",
+          dificil:
+            "Mi extensión es infinita, mi abrazo puede ser envolvente o sofocante. Domino el origen de la palabra.",
+        },
+        scissors: {
+          facil: "Tengo dos hojas y corto papel. ¿Qué soy?",
+          normal:
+            "Mis brazos se cruzan en un abrazo letal, cortando la extensión blanda.",
+          dificil:
+            "Soy el filo de la decisión, la separación del continuo. Dos caminos que convergen para dividir.",
+        },
       };
       return riddles[iaChoice][difficulty] || "Mmm... ¡Tendrás que adivinar!";
     };
 
-    /**
-     * Inicia el temporizador de la ronda.
-     */
     const startTimer = () => {
       timeRemaining.value = maxTimePerRound;
       timeBarWidth.value = 100;
+
       if (timerInterval) clearInterval(timerInterval);
 
       timerInterval = setInterval(() => {
         timeRemaining.value -= 100;
         timeBarWidth.value = (timeRemaining.value / maxTimePerRound) * 100;
 
-        // Si el tiempo se agota, el jugador pierde el turno y se elige una opción al azar
         if (timeRemaining.value <= 0) {
           clearInterval(timerInterval);
           timeRemaining.value = 0;
@@ -740,18 +724,15 @@ export default {
           handleGameMessage(
             "¡Tiempo agotado! Tu elección fue aleatoria.",
             "sad"
-          );
+          ); // <-- USANDO EL ORQUESTADOR
           riddleActive.value = false;
           playRound(choices[Math.floor(Math.random() * choices.length)]);
         }
       }, 100);
 
-      preCalculateIaChoice(); // Pre-calcula la jugada de la IA para el acertijo
+      preCalculateIaChoice();
     };
 
-    /**
-     * Detiene el temporizador de la ronda.
-     */
     const stopTimer = () => {
       if (timerInterval) {
         clearInterval(timerInterval);
@@ -759,17 +740,11 @@ export default {
       }
     };
 
-    /**
-     * Hook de ciclo de vida: se ejecuta cuando el componente se monta.
-     */
     onMounted(() => {
       setGameParameters(props.difficulty);
       startGame();
     });
 
-    /**
-     * Observador: reinicia el juego si la dificultad cambia desde el componente padre.
-     */
     watch(
       () => props.difficulty,
       (newDifficulty) => {
@@ -778,7 +753,6 @@ export default {
       }
     );
 
-    // Expone todas las variables y funciones que el <template> necesita para funcionar
     return {
       playerChoice,
       iaChoice,

@@ -45,27 +45,15 @@
 </template>
 
 <script>
-// Importaciones necesarias de Vue y librerías externas
 import { ref, markRaw, onMounted } from "vue";
 import { useRoute } from "vue-router";
-
-// Importación de los componentes de cada minijuego
 import PiedraPapelTijera from "../components/MiniGames/PiedraPapelTijera.vue";
 import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue";
 import SimonDice from "../components/MiniGames/SimonDice.vue";
 
-// Importación de componentes de la interfaz y la lógica central
 import IASprite from "../components/IASprite.vue";
 import useGameOrchestrator from "../composables/useGameOrchestrator";
 
-/**
- * @name GameView
- * @description
- * Esta vista es el contenedor principal y el controlador del "Desafío".
- * Se encarga de gestionar el flujo de rondas, seleccionar los minijuegos de forma
- * aleatoria, llevar el puntaje global y comunicarse con el orquestador de la IA
- * para mostrar mensajes y aplicar modificadores.
- */
 export default {
   name: "GameView",
   components: {
@@ -75,10 +63,8 @@ export default {
     IASprite,
   },
   setup() {
-    // Hook para acceder a la información de la ruta actual (ej. para obtener parámetros GET)
     const route = useRoute();
 
-    // Desestructuración del composable del orquestador para acceder al estado global y funciones de la IA
     const {
       aiMessage,
       aiExpression,
@@ -87,37 +73,28 @@ export default {
       setAiMessage,
       decideAndApplyAiModifiers,
       setGlobalDifficulty,
-      handleGameMessage,
+      handleGameMessage, // <-- ¡Importado desde el composable!
     } = useGameOrchestrator();
 
-    // --- Estado Reactivo del Desafío ---
-    const playerScore = ref(0); // Puntuación global del jugador en el desafío
-    const iaScore = ref(0); // Puntuación global de la IA en el desafío
-    const currentRound = ref(1); // Ronda actual del desafío
-    const totalRounds = ref(3); // Número total de rondas que componen el desafío
+    const playerScore = ref(0);
+    const iaScore = ref(0);
+    const currentRound = ref(1);
+    const totalRounds = ref(3);
 
-    // Determina la dificultad del desafío a partir de los parámetros de la URL, con "normal" como valor por defecto
     const currentDifficulty = ref(route.query.difficulty || "normal");
 
-    // Array con todos los componentes de minijuegos disponibles.
-    // 'markRaw' se usa para decirle a Vue que no haga reactivos estos componentes, optimizando el rendimiento.
     const availableMiniGames = [
       markRaw(PiedraPapelTijera),
       markRaw(AdivinaNumero),
       markRaw(SimonDice),
     ];
 
-    const currentMiniGameComponent = ref(null); // Almacena el componente del minijuego que se está jugando
-    const playedMiniGames = ref([]); // Guarda los nombres de los juegos ya jugados para evitar repeticiones
+    const currentMiniGameComponent = ref(null);
+    const playedMiniGames = ref([]);
 
-    // Banderas para controlar el estado de la interfaz
-    const challengeEnded = ref(false); // true si el desafío ha terminado
-    const showNextRoundButton = ref(false); // true para mostrar el botón de "Siguiente Ronda"
+    const challengeEnded = ref(false);
+    const showNextRoundButton = ref(false);
 
-    /**
-     * Se ejecuta cuando el desafío termina (ya sea por rondas o por knockout).
-     * Muestra el resultado final, determina el mensaje de la IA y desbloquea la siguiente dificultad si el jugador gana.
-     */
     const handleChallengeEnd = () => {
       challengeEnded.value = true;
       showNextRoundButton.value = false;
@@ -126,7 +103,6 @@ export default {
         `Resultado final: Jugador ${playerScore.value} - IA ${iaScore.value}`
       );
 
-      // Lógica para determinar el mensaje final de la IA basado en el resultado
       let finalAiMessage = "";
       let finalAiExpression = "normal";
       if (playerScore.value > iaScore.value) {
@@ -142,7 +118,6 @@ export default {
       }
       setAiMessage(finalAiMessage, finalAiExpression, 5000);
 
-      // Si el jugador gana, se dispara un evento global para desbloquear la siguiente dificultad
       if (playerScore.value > iaScore.value) {
         let nextDifficultyToUnlock = null;
         if (currentDifficulty.value === "facil") {
@@ -160,14 +135,9 @@ export default {
           console.log(`¡Nivel "${nextDifficultyToUnlock}" desbloqueado!`);
         }
       }
-      // Se oculta el componente del minijuego
       currentMiniGameComponent.value = null;
     };
 
-    /**
-     * Selecciona aleatoriamente el siguiente minijuego a jugar, evitando repeticiones si es posible.
-     * Si se han jugado todos, reinicia la lista.
-     */
     const selectNextMiniGame = () => {
       if (currentRound.value <= totalRounds.value) {
         const unplayedGames = availableMiniGames.filter(
@@ -179,7 +149,6 @@ export default {
           const randomIndex = Math.floor(Math.random() * unplayedGames.length);
           nextGame = unplayedGames[randomIndex];
         } else {
-          // Si ya se jugaron todos, se limpia la lista para permitir que se repitan.
           playedMiniGames.value = [];
           const randomIndex = Math.floor(
             Math.random() * availableMiniGames.length
@@ -190,26 +159,22 @@ export default {
         currentMiniGameComponent.value = nextGame;
         playedMiniGames.value.push(nextGame.name);
 
-        // Llama al orquestador para que decida si la IA debe usar un modificador en esta ronda
         decideAndApplyAiModifiers(
           nextGame.name,
           playerScore.value,
           iaScore.value
         );
 
-        // Muestra un mensaje de bienvenida a la ronda si la IA no está haciendo una intervención especial
+        // Si la IA no está interviniendo (por ejemplo, si no aplica modificadores),
+        // entonces muestra un mensaje normal de inicio de ronda.
         if (!isAiIntervening.value) {
           setAiMessage(`¡Es hora de ${nextGame.name}! ¡Mucha suerte!`, "happy");
         }
       } else {
-        // Si ya no quedan rondas, finaliza el desafío
         handleChallengeEnd();
       }
     };
 
-    /**
-     * Inicia un nuevo desafío, reiniciando todos los marcadores y estados.
-     */
     const startChallenge = () => {
       playerScore.value = 0;
       iaScore.value = 0;
@@ -219,9 +184,9 @@ export default {
       playedMiniGames.value = [];
 
       setGlobalDifficulty(currentDifficulty.value);
+
       selectNextMiniGame();
 
-      // Muestra el mensaje de bienvenida inicial del desafío
       if (!isAiIntervening.value) {
         setAiMessage(
           `¡Bienvenido al desafío! ¡Demuéstrame de qué eres capaz en dificultad ${currentDifficulty.value}!`,
@@ -231,47 +196,29 @@ export default {
       }
     };
 
-    /**
-     * Reinicia el desafío completo. Es un alias para startChallenge.
-     */
     const resetChallenge = () => {
       startChallenge();
     };
 
-    /**
-     * Se ejecuta al pulsar el botón "Siguiente Ronda". Incrementa el contador de ronda y selecciona el próximo juego.
-     */
     const goToNextRound = () => {
       showNextRoundButton.value = false;
       currentRound.value++;
       selectNextMiniGame();
     };
 
-    /**
-     * Función puente para que los componentes hijos puedan comunicarse con el orquestador. (Obsoleto)
-     * @param {string} message - El texto del mensaje.
-     * @param {string} expression - La expresión de la IA.
-     * @param {boolean} intervene - Si la IA debe hacer una intervención.
-     */
+    // Este es el nuevo método que se conecta con el composable
     const handleIaMessage = (message, expression, intervene = false) => {
       handleGameMessage(message, expression, intervene);
     };
 
-    /**
-     * Gestiona el evento '@round-finished' emitido por un minijuego.
-     * Recibe el resultado, actualiza el marcador global y decide si mostrar el botón
-     * de siguiente ronda o finalizar el desafío.
-     * @param {object} payload - El objeto con el resultado del minijuego.
-     * @param {number} payload.playerScore - Puntuación final del jugador.
-     * @param {number} payload.iaScore - Puntuación final de la IA.
-     */
     const handleRoundFinished = (payload) => {
       console.log("Ronda terminada:", payload);
 
       let aiReactionMessage = "";
       let aiReactionExpression = "normal";
 
-      // Compara los puntajes del payload para determinar el ganador de la ronda.
+      // --- LÓGICA CORREGIDA ---
+      // Comparamos los puntajes del payload en lugar de buscar "payload.winner"
       if (payload.playerScore > payload.iaScore) {
         playerScore.value++; // Suma un punto al marcador global del jugador
         aiReactionMessage = "¡Rayos! Ganaste esta ronda. No te confíes.";
@@ -292,13 +239,12 @@ export default {
         aiReactionExpression = "thinking";
         console.log("Ronda empatada.");
       }
+      // --- FIN DE LA LÓGICA CORREGIDA ---
 
-      // La IA reacciona al resultado de la ronda
       if (!isAiIntervening.value) {
         setAiMessage(aiReactionMessage, aiReactionExpression);
       }
 
-      // Decide si mostrar el botón de siguiente ronda o terminar el desafío
       if (currentRound.value < totalRounds.value) {
         showNextRoundButton.value = true;
       } else {
@@ -306,15 +252,10 @@ export default {
       }
     };
 
-    /**
-     * Hook del ciclo de vida de Vue. Se ejecuta una vez que el componente ha sido montado en el DOM.
-     * Es el punto de entrada para iniciar el desafío.
-     */
     onMounted(() => {
       startChallenge();
     });
 
-    // Se exponen todas las variables y funciones que necesita la plantilla <template>
     return {
       playerScore,
       iaScore,
@@ -331,7 +272,7 @@ export default {
       aiExpression,
       aiGameModifiers,
       isAiIntervening,
-      handleIaMessage,
+      handleIaMessage, // <-- ¡Expuesto para la plantilla!
     };
   },
 };
