@@ -1,33 +1,59 @@
 import { ref, readonly } from "vue";
 
-// Sección 1: Definición del Estado Reactivo
-// Estas variables almacenan el estado del juego que otros componentes pueden leer.
-// `ref` las hace reactivas, lo que significa que cualquier cambio activará actualizaciones en la interfaz.
-// `readonly` se usa en la exportación para evitar que otros componentes modifiquen el estado directamente.
-const aiMessage = ref(""); // Mensaje actual de la IA que se muestra en pantalla.
-const aiExpression = ref("normal"); // Expresión actual de la IA ('happy', 'angry', etc.).
-const currentMinigame = ref("PiedraPapelTijera"); // El minijuego que se está jugando actualmente.
-const globalDifficulty = ref("normal"); // La dificultad global del juego.
+/**
+ * @file useGameOrchestrator.js
+ * @description
+ * Este composable es el cerebro y centro de estado de la IA para todo el desafío.
+ * Gestiona los diálogos, la dificultad, los modificadores de juego y el estado
+ * general de la IA, proveyendo una API centralizada para que todos los componentes
+ * puedan interactuar con ella de forma consistente.
+ */
 
-// Estado de los modificadores de la IA para el juego actual
-const aiGameModifiers = ref({}); // Objeto que guarda los modificadores activos para el minijuego.
+// ====================================================================================
+// SECCIÓN 1: ESTADO GLOBAL REACTIVO
+// Aquí se define el estado central que será compartido a través de toda la aplicación.
+// Este estado es reactivo, lo que significa que cualquier componente que lo use se
+// actualizará automáticamente cuando sus valores cambien.
+// ====================================================================================
 
-// Estado para la intervención central de la IA
-const isAiIntervening = ref(false); // Bandera booleana para indicar si la IA está interviniendo (modo central).
-let messageTimeout = null; // Temporizador unificado para todos los mensajes.
+/** @type {import('vue').Ref<string>} Mensaje actual que muestra la IA. */
+const aiMessage = ref("");
 
-// Sección 2: Funciones de Control de Mensajes (CORREGIDAS)
+/** @type {import('vue').Ref<string>} Expresión facial de la IA ('normal', 'happy', 'angry', 'thinking', 'sad'). */
+const aiExpression = ref("normal");
 
+/** @type {import('vue').Ref<string>} La dificultad global del desafío ('facil', 'normal', 'dificil'). */
+const globalDifficulty = ref("normal");
+
+/** @type {import('vue').Ref<object>} Objeto que contiene los modificadores de juego activos para la ronda actual. */
+const aiGameModifiers = ref({});
+
+/** @type {import('vue').Ref<boolean>} Bandera que indica si la IA está en modo 'intervención' (sprite centrado). */
+const isAiIntervening = ref(false);
+
+/** @type {number|null} Referencia al temporizador de los mensajes para poder cancelarlo. */
+let messageTimeout = null;
+
+// ====================================================================================
+// SECCIÓN 2: CONTROL DE MENSAJES DE LA IA
+// Funciones para manejar la visualización de diálogos de la IA.
+// ====================================================================================
+
+/**
+ * Muestra un mensaje estándar de la IA.
+ * @param {string} message El texto a mostrar.
+ * @param {string} expression La expresión facial de la IA.
+ * @param {number} duration La duración del mensaje en milisegundos.
+ */
 const setAiMessage = (message, expression = "normal", duration = 5000) => {
-  // Limpia SIEMPRE el temporizador anterior para evitar solapamientos.
-  clearTimeout(messageTimeout);
-  isAiIntervening.value = false;
+  clearTimeout(messageTimeout); // Cancela cualquier mensaje anterior para evitar solapamientos
+  isAiIntervening.value = false; // Asegura que no esté en modo intervención
 
   aiMessage.value = message;
   aiExpression.value = expression;
 
+  // Si hay un mensaje y una duración, se programa su borrado
   if (message && duration) {
-    // Usa el temporizador unificado.
     messageTimeout = setTimeout(() => {
       aiMessage.value = "";
       aiExpression.value = "normal";
@@ -35,54 +61,51 @@ const setAiMessage = (message, expression = "normal", duration = 5000) => {
   }
 };
 
+/**
+ * Muestra un mensaje de 'intervención' de la IA, donde el sprite se mueve al centro.
+ * @param {string} message El texto a mostrar.
+ * @param {string} expression La expresión facial de la IA.
+ * @param {number} duration La duración del mensaje en milisegundos.
+ */
 const interveneAi = (message, expression = "normal", duration = 5000) => {
-  // Limpia SIEMPRE el temporizador anterior.
-  clearTimeout(messageTimeout);
+  clearTimeout(messageTimeout); // Cancela cualquier mensaje anterior
+  isAiIntervening.value = true; // Activa el modo intervención
 
-  isAiIntervening.value = true;
   aiMessage.value = message;
   aiExpression.value = expression;
 
   if (message && duration) {
-    // Usa el temporizador unificado.
     messageTimeout = setTimeout(() => {
-      isAiIntervening.value = false;
+      isAiIntervening.value = false; // Desactiva la intervención al terminar
       aiMessage.value = "";
       aiExpression.value = "normal";
     }, duration);
   }
 };
 
-// Sección 3: Funciones de Control de Estado del Juego
-// Estas funciones manejan cambios en el estado del juego y envían un mensaje inicial a la IA.
+// ====================================================================================
+// SECCIÓN 3: CONTROL DE ESTADO DEL JUEGO
+// Funciones para modificar el estado general del desafío.
+// ====================================================================================
 
-const setMinigame = (gameName) => {
-  // Cambia el minijuego actual.
-  currentMinigame.value = gameName;
-  // Muestra un mensaje de bienvenida de la IA.
-  setAiMessage(`¡Genial! Juguemos a ${gameName}.`, "happy");
-};
-
+/**
+ * Actualiza la dificultad global del juego y notifica al jugador.
+ * @param {string} difficulty La nueva dificultad.
+ */
 const setGlobalDifficulty = (difficulty) => {
-  // Cambia la dificultad global.
   globalDifficulty.value = difficulty;
-  // Muestra un mensaje de la IA relacionado con la dificultad.
   setAiMessage(
     `¡Prepara tu mente! La dificultad es ${difficulty}.`,
     "thinking"
   );
 };
 
-// Sección 4: Definición de Modificadores de la IA
-// Este objeto es el corazón de la inteligencia de la IA. Define las reglas para cada minijuego.
-// Cada propiedad (e.g., `maxAttempts`, `narrowRange`) es un posible modificador.
-// Dentro de cada modificador se define:
-// - `chance`: la probabilidad de que se active.
-// - `value`: el valor que el modificador pasará al minijuego.
-// - `message`: el mensaje de la IA cuando se activa.
-// - `expression`: la expresión de la IA.
-// - `intervene`: si la IA debe moverse al centro para decir el mensaje.
-// - `duration`: la duración específica del mensaje (nuevo campo que agregaste).
+// ====================================================================================
+// SECCIÓN 4: LÓGICA DE MODIFICADORES DE LA IA
+// Este objeto define las posibles trampas o ayudas que la IA puede aplicar
+// en cada juego y dificultad, dándole personalidad y variabilidad al gameplay.
+// ====================================================================================
+
 const modifierProbabilities = {
   // Probabilidades para Adivina el Número
   AdivinaNumero: {
@@ -151,15 +174,13 @@ const modifierProbabilities = {
       },
     },
   },
-  // --- Probabilidades para Piedra, Papel o Tijera (ejemplo futuro) ---
+  // Probabilidades para Piedra, Papel o Tijera
   PiedraPapelTijera: {
-    facil: {
-      // Sin intervención agresiva. La IA no bloquea habilidades en fácil.
-    },
+    facil: {},
     normal: {
       blockPlayerAbility: {
-        chance: 0.25, // 25% de probabilidad de bloquear una habilidad
-        value: "random", // Indica que se bloqueará una habilidad aleatoria
+        chance: 0.25,
+        value: "random",
         message:
           "¡Humano! ¡Mi influencia bloquea una de tus habilidades esta ronda!",
         expression: "thinking",
@@ -169,8 +190,8 @@ const modifierProbabilities = {
     },
     dificil: {
       blockPlayerAbility: {
-        chance: 0.4, // 40% de probabilidad de bloquear una habilidad
-        value: "random", // Bloquea una habilidad aleatoria
+        chance: 0.4,
+        value: "random",
         message:
           "¡Mis circuitos están activos! ¡Una de tus ventajas ha sido anulada!",
         expression: "angry",
@@ -179,16 +200,13 @@ const modifierProbabilities = {
       },
     },
   },
-  // --- NUEVO: Probabilidades para Simon Dice ---
+  // Probabilidades para Simon Dice
   SimonDice: {
-    facil: {
-      // Podríamos poner un modificador de ayuda si queremos, ej. secuencia ligeramente más corta
-      // sequenceDifficulty: { chance: 0.2, value: { length: 0.8, speed: 1.0 }, message: '¡No te estreses! Un poco más fácil para ti.', expression: 'happy', intervene: false }
-    },
+    facil: {},
     normal: {
       sequenceDifficulty: {
         chance: 0.3,
-        value: { length: 1.2, speed: 0.8 }, // 20% más larga, 20% más rápida
+        value: { length: 1.2, speed: 0.8 },
         message: "¡Sube la velocidad! ¿Puedes seguirme?",
         expression: "thinking",
         intervene: true,
@@ -198,7 +216,7 @@ const modifierProbabilities = {
     dificil: {
       sequenceDifficulty: {
         chance: 0.4,
-        value: { length: 1.5, speed: 0.6 }, // 50% más larga, 40% más rápida
+        value: { length: 1.5, speed: 0.6 },
         message:
           "¡Mis secuencias son un desafío para los más audaces! ¡Demuéstrame tu memoria!",
         expression: "angry",
@@ -206,7 +224,7 @@ const modifierProbabilities = {
         duration: 6000,
       },
       nonRepeatingSequence: {
-        chance: 0.2, // 20% de probabilidad
+        chance: 0.2,
         value: true,
         message:
           "¡El patrón... ha desaparecido! ¡Cada ronda es un nuevo enigma!",
@@ -214,10 +232,9 @@ const modifierProbabilities = {
         intervene: true,
         duration: 6000,
       },
-      // Posibilidad de secuencia EXTREMADAMENTE difícil
       extremeSequence: {
-        chance: 0.05, // 5% de probabilidad de ser casi imposible
-        value: { length: 2.5, speed: 0.3 }, // 150% más larga (2.5x), 70% más rápida (0.3x)
+        chance: 0.05,
+        value: { length: 2.5, speed: 0.3 },
         message:
           "¡Estás a punto de experimentar mis límites! ¡Intenta no colapsar!",
         expression: "angry",
@@ -228,75 +245,63 @@ const modifierProbabilities = {
   },
 };
 
-// Sección 5: Lógica Principal para Aplicar Modificadores
-// Esta es la función central que decide si aplicar un modificador al inicio de una ronda.
+// ====================================================================================
+// SECCIÓN 5: LÓGICA CENTRAL DE LA IA
+// Funciones que actúan como el "cerebro" de la IA.
+// ====================================================================================
 
+/**
+ * Decide si la IA debe aplicar un modificador al inicio de una ronda.
+ * La probabilidad puede ajustarse dinámicamente según si el jugador va ganando o perdiendo.
+ * @param {string} gameName El nombre del minijuego actual.
+ * @param {number} playerScore La puntuación global del jugador.
+ * @param {number} iaScore La puntuación global de la IA.
+ */
 const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
-  aiGameModifiers.value = {}; // Reinicia los modificadores.
-  let messageToDisplay = ""; // Variable temporal para el mensaje.
-  let expressionToUse = "normal"; // Variable temporal para la expresión.
-  let shouldIntervene = false; // Bandera para la intervención.
-  let modifierApplied = false; // Bandera para saber si se aplicó un modificador.
-  let messageDuration = 0; // NUEVO: Variable para almacenar la duración del mensaje.
+  aiGameModifiers.value = {}; // Resetea los modificadores de la ronda anterior
+
+  // Variables temporales para construir la respuesta de la IA
+  let messageToDisplay = "";
+  let expressionToUse = "normal";
+  let shouldIntervene = false;
+  let modifierApplied = false;
+  let messageDuration = 5000;
 
   const currentDifficultyProbabilities =
     modifierProbabilities[gameName]?.[globalDifficulty.value];
 
-  // Comprueba si existen modificadores para el juego y la dificultad actuales.
+  // Si existen modificadores para el juego y dificultad actual...
   if (currentDifficultyProbabilities) {
-    const orderedModifiers = [];
-    if (gameName === "SimonDice" && globalDifficulty.value === "dificil") {
-      if (currentDifficultyProbabilities.extremeSequence) {
-        orderedModifiers.push({
-          name: "extremeSequence",
-          config: currentDifficultyProbabilities.extremeSequence,
-        });
-      }
-      for (const modifierName in currentDifficultyProbabilities) {
-        if (modifierName !== "extremeSequence") {
-          orderedModifiers.push({
-            name: modifierName,
-            config: currentDifficultyProbabilities[modifierName],
-          });
-        }
-      }
-    } else {
-      for (const modifierName in currentDifficultyProbabilities) {
-        orderedModifiers.push({
-          name: modifierName,
-          config: currentDifficultyProbabilities[modifierName],
-        });
-      }
-    }
-
-    // Itera sobre los modificadores para ver si alguno se activa.
-    for (const { name: modifierName, config } of orderedModifiers) {
-      const rand = Math.random();
-      let adjustedChance = config.chance;
+    // Itera sobre los posibles modificadores
+    for (const modifierName in currentDifficultyProbabilities) {
+      const config = currentDifficultyProbabilities[modifierName];
+      let adjustedChance = config.chance; // Probabilidad base del modificador
       const scoreDifference = playerScore - iaScore;
-      // Ajusta la probabilidad en función de la diferencia de puntuación.
-      if (scoreDifference > 0) {
-        adjustedChance *= 1.2;
-      } else if (scoreDifference < 0) {
-        adjustedChance *= 0.8;
-      }
-      adjustedChance = Math.min(adjustedChance, 1.0);
 
-      if (rand < adjustedChance) {
-        // Si el modificador se activa, guarda su configuración.
+      // La IA "se frustra" o "se relaja" según el marcador, ajustando la probabilidad
+      if (scoreDifference > 0) {
+        // Si el jugador va ganando...
+        adjustedChance *= 1.2; // Aumenta la chance de que la IA aplique un modificador
+      } else if (scoreDifference < 0) {
+        // Si el jugador va perdiendo...
+        adjustedChance *= 0.8; // Disminuye la chance, la IA se confía
+      }
+
+      // Se lanza el "dado" virtual
+      if (Math.random() < Math.min(adjustedChance, 1.0)) {
+        // El modificador se activa
         aiGameModifiers.value[modifierName] = config.value;
-        // Almacena el mensaje, expresión, estado de intervención y duración para su uso posterior.
         messageToDisplay = config.message;
         expressionToUse = config.expression;
         shouldIntervene = config.intervene;
-        messageDuration = config.duration; // NUEVO: Almacena la duración.
+        messageDuration = config.duration;
         modifierApplied = true;
-        break; // Detiene el bucle si se aplica un modificador.
+        break; // Solo se aplica un modificador por ronda
       }
     }
   }
 
-  // Si no se aplicó ningún modificador, muestra un mensaje por defecto.
+  // Si ningún modificador fue activado, se elige un mensaje genérico de inicio de ronda
   if (!modifierApplied) {
     if (globalDifficulty.value === "facil") {
       messageToDisplay = `¡Vamos, tú puedes con este ${gameName}!`;
@@ -308,12 +313,9 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
       messageToDisplay = `¡Prepárate! ¡Esta ronda de ${gameName} no será sencilla!`;
       expressionToUse = "thinking";
     }
-    shouldIntervene = false;
-    // Si no hay un modificador, asigna una duración por defecto
-    messageDuration = 5000;
   }
 
-  // Finalmente, muestra el mensaje, usando `interveneAi` o `setAiMessage` según corresponda.
+  // Finalmente, se muestra el mensaje decidido (ya sea de un modificador o el genérico)
   if (messageToDisplay) {
     if (shouldIntervene) {
       interveneAi(messageToDisplay, expressionToUse, messageDuration);
@@ -323,43 +325,54 @@ const decideAndApplyAiModifiers = (gameName, playerScore, iaScore) => {
   }
 };
 
-// Sección 6: Función Unificada para Mensajes (CORREGIDA)
+// ====================================================================================
+// SECCIÓN 6: FUNCIÓN UNIFICADA PARA MENSAJES
+// ====================================================================================
+
+/**
+ * Función centralizada que los componentes de minijuegos deben usar para comunicarse con la IA.
+ * Simplifica la lógica al no tener que importar 'setAiMessage' e 'interveneAi' por separado.
+ * @param {string} message El texto del mensaje.
+ * @param {string} expression La expresión de la IA.
+ * @param {boolean} intervene Si la IA debe hacer una intervención.
+ * @param {number|null} duration La duración del mensaje.
+ */
 const handleGameMessage = (
   message,
   expression,
   intervene = false,
-  duration = 5000 // Ponemos 5000 como valor por defecto
+  duration = 5000
 ) => {
-  // Si la duración que llega es null, usamos el por defecto.
   const finalDuration = duration !== null ? duration : 5000;
-
   if (intervene) {
-    // 👇 CORREGIDO: `finalDuration` se pasa como tercer argumento. 👇
     interveneAi(message, expression, finalDuration);
   } else {
     setAiMessage(message, expression, finalDuration);
   }
 };
 
-// Sección 7: Exportación del Composable
-// Aquí se exponen las variables de estado y las funciones para que otros componentes las usen.
-// Se usan `readonly` en las variables de estado para evitar cambios no deseados desde fuera.
+// ====================================================================================
+// SECCIÓN 7: EXPORTACIÓN DEL COMPOSABLE
+// Se empaqueta y exporta toda la funcionalidad para que pueda ser utilizada
+// por cualquier componente con un simple 'useGameOrchestrator()'.
+// ====================================================================================
+
 export default function useGameOrchestrator() {
   return {
-    // Estado de la IA y el juego (solo lectura)
+    // --- ESTADO (EXPORTADO COMO 'READONLY') ---
+    // Se usa 'readonly' para que los componentes puedan leer el estado pero no
+    // modificarlo directamente. Deben usar las funciones exportadas para ello.
+    // Esto previene errores y mantiene un flujo de datos predecible.
     aiMessage: readonly(aiMessage),
     aiExpression: readonly(aiExpression),
     aiGameModifiers: readonly(aiGameModifiers),
     isAiIntervening: readonly(isAiIntervening),
-    currentMinigame: readonly(currentMinigame),
     globalDifficulty: readonly(globalDifficulty),
 
-    // Funciones que pueden ser llamadas desde otros componentes.
-    setAiMessage,
-    setMinigame,
+    // --- FUNCIONES (MÉTODOS PÚBLICOS) ---
+    // Estas son las funciones que los componentes pueden llamar para interactuar con el orquestador.
     setGlobalDifficulty,
     decideAndApplyAiModifiers,
-    interveneAi,
     handleGameMessage,
   };
 }

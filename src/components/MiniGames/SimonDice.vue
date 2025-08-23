@@ -39,15 +39,23 @@ import { ref, onMounted, watch, markRaw } from "vue";
 import { Howl } from "howler";
 import useGameOrchestrator from "@/composables/useGameOrchestrator";
 
+/**
+ * @name SimonDice
+ * @description Componente del minijuego clásico "Simón Dice".
+ * La IA genera y muestra una secuencia de colores que el jugador debe memorizar y repetir.
+ * La dificultad y velocidad aumentan con los niveles y pueden ser alteradas por modificadores.
+ */
 export default {
   name: "SimonDice",
-  emits: ["round-finished"],
+  emits: ["round-finished"], // Evento para notificar al padre sobre el fin del juego
   props: {
+    // La dificultad actual del juego, recibida desde GameView
     difficulty: {
       type: String,
       default: "normal",
       validator: (value) => ["facil", "normal", "dificil"].includes(value),
     },
+    // Modificadores de la IA activos para esta ronda, recibidos desde GameView
     aiModifiers: {
       type: Object,
       default: () => ({}),
@@ -55,15 +63,21 @@ export default {
   },
 
   setup(props, { emit }) {
+    // Importa la función para enviar mensajes a la IA
     const { handleGameMessage } = useGameOrchestrator();
 
-    const colors = ["red", "blue", "green", "yellow"];
+    // --- Parámetros y Estado del Juego ---
+    const colors = ["red", "blue", "green", "yellow"]; // Colores/botones disponibles
+
+    // Parámetros de juego que se configuran según la dificultad
     let initialSequenceLength = 0;
     let roundsToWinSimon = 0;
-    const lightDuration = ref(0);
-    const pauseBetweenLights = ref(0);
-    const nonRepeatingSequenceActive = ref(false);
+    const lightDuration = ref(0); // Duración de cada luz en la secuencia
+    const pauseBetweenLights = ref(0); // Pausa entre cada luz
+    const nonRepeatingSequenceActive = ref(false); // Bandera para el modificador de secuencia no repetitiva
 
+    // Mapa de sonidos para cada color, usando Howler.js
+    // 'markRaw' optimiza el rendimiento al evitar que Vue haga reactivo este objeto complejo
     const soundMap = markRaw({
       red: new Howl({ src: [process.env.BASE_URL + "sounds/red.mp3"] }),
       blue: new Howl({ src: [process.env.BASE_URL + "sounds/blue.mp3"] }),
@@ -71,6 +85,12 @@ export default {
       yellow: new Howl({ src: [process.env.BASE_URL + "sounds/yellow.mp3"] }),
     });
 
+    /**
+     * Establece los parámetros de juego (velocidad, longitud de secuencia, etc.)
+     * basándose en la dificultad y los modificadores de la IA.
+     * @param {string} difficulty - La dificultad base.
+     * @param {object} modifiers - El objeto de modificadores de la IA.
+     */
     const setGameParametersInternal = (difficulty, modifiers = {}) => {
       let baseInitialSequenceLength,
         baseRoundsToWin,
@@ -105,6 +125,7 @@ export default {
       let actualLightDuration = baseLightDuration;
       let actualPauseBetweenLights = basePauseBetweenLights;
 
+      // Aplica modificadores de la IA si existen
       if (modifiers.sequenceDifficulty) {
         actualSequenceLength = Math.max(
           1,
@@ -140,6 +161,7 @@ export default {
         );
       }
 
+      // Asigna los valores finales a las variables de estado
       initialSequenceLength = actualSequenceLength;
       roundsToWinSimon = baseRoundsToWin;
       lightDuration.value = actualLightDuration;
@@ -148,16 +170,22 @@ export default {
         modifiers.nonRepeatingSequence || false;
     };
 
-    const gameStarted = ref(false);
-    const gameOver = ref(false);
-    const sequence = ref([]);
-    const playerSequence = ref([]);
-    const isShowingSequence = ref(false);
-    const isPlayerTurn = ref(false);
-    const activeLight = ref(null);
+    // --- Estado Reactivo del Flujo del Juego ---
+    const gameStarted = ref(false); // Indica si se ha presionado "Empezar"
+    const gameOver = ref(false); // Indica si el juego ha terminado (ganado o perdido)
+    const sequence = ref([]); // La secuencia actual generada por la IA
+    const playerSequence = ref([]); // La secuencia que el jugador está introduciendo
+    const isShowingSequence = ref(false); // true mientras la IA muestra la secuencia (bloquea input)
+    const isPlayerTurn = ref(false); // true cuando es el turno del jugador para repetir la secuencia
+    const activeLight = ref(null); // Almacena el color que está iluminado en un momento dado
 
-    const currentSimonRound = ref(1);
+    const currentSimonRound = ref(1); // Ronda actual dentro del minijuego de Simón Dice
 
+    /**
+     * Genera una secuencia completamente nueva de una longitud determinada.
+     * @param {number} length - La longitud de la secuencia a generar.
+     * @returns {string[]} Un array de colores.
+     */
     const generateNewSequence = (length) => {
       const newSeq = [];
       for (let i = 0; i < length; i++) {
@@ -167,6 +195,10 @@ export default {
       return newSeq;
     };
 
+    /**
+     * Decide si añadir un nuevo paso a la secuencia actual o generar una nueva
+     * si el modificador 'nonRepeatingSequence' está activo.
+     */
     const addStepOrGenerateNew = () => {
       if (nonRepeatingSequenceActive.value) {
         sequence.value = generateNewSequence(currentSimonRound.value);
@@ -176,17 +208,21 @@ export default {
       }
     };
 
+    /**
+     * Muestra visualmente la secuencia de colores al jugador, un color a la vez.
+     */
     const showSequence = async () => {
       isShowingSequence.value = true;
       isPlayerTurn.value = false;
-      playerSequence.value = []; // **AGREGADO: limpia la secuencia del jugador antes de mostrar la de Simón**
+      playerSequence.value = []; // Limpia la secuencia del jugador antes de mostrar la de Simón
       handleGameMessage(
         `Ronda ${currentSimonRound.value}. ¡Memoriza la secuencia!`,
         "thinking"
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Pequeña pausa inicial
 
+      // Itera sobre cada color en la secuencia, lo ilumina y reproduce su sonido
       for (let i = 0; i < sequence.value.length; i++) {
         activeLight.value = sequence.value[i];
         soundMap[sequence.value[i]].play();
@@ -204,7 +240,12 @@ export default {
       handleGameMessage("¡Tu turno! Repite la secuencia.", "happy");
     };
 
+    /**
+     * Gestiona el clic de un jugador en uno de los botones de color.
+     * @param {number} index - El índice del color clickeado en el array `colors`.
+     */
     const handlePlayerClick = (index) => {
+      // Bloquea el input si no es el turno del jugador o el juego terminó
       if (!isPlayerTurn.value || isShowingSequence.value || gameOver.value)
         return;
 
@@ -212,16 +253,19 @@ export default {
       playerSequence.value.push(clickedColor);
       soundMap[clickedColor].play();
 
+      // Efecto visual rápido para el botón presionado
       const originalLight = activeLight.value;
       activeLight.value = clickedColor;
       setTimeout(() => {
         activeLight.value = originalLight;
       }, 100);
 
+      // Comprueba si el último color presionado es correcto
       if (
         playerSequence.value[playerSequence.value.length - 1] !==
         sequence.value[playerSequence.value.length - 1]
       ) {
+        // El jugador se equivocó
         handleGameMessage(
           `¡Secuencia incorrecta! Perdiste en la ronda ${currentSimonRound.value}.`,
           "sad",
@@ -233,9 +277,7 @@ export default {
         return;
       }
 
-      // NO HACEMOS NADA si el jugador ha acertado el botón pero aún le faltan más de la secuencia
-      // Esta es la lógica central: el código debe esperar a que el jugador complete la secuencia
-
+      // Si el jugador completó la secuencia actual correctamente
       if (playerSequence.value.length === sequence.value.length) {
         handleGameMessage(
           "¡Correcto! Preparando la siguiente ronda...",
@@ -243,9 +285,11 @@ export default {
         );
         isPlayerTurn.value = false;
 
+        // Pausa antes de la siguiente ronda
         setTimeout(() => {
           currentSimonRound.value++;
           if (currentSimonRound.value > roundsToWinSimon) {
+            // El jugador ha ganado el minijuego
             handleGameMessage(
               "¡Has completado el desafío de Simón Dice!",
               "happy",
@@ -254,7 +298,7 @@ export default {
             gameOver.value = true;
             emit("round-finished", { playerScore: 1, iaScore: 0 });
           } else {
-            // AÑADIDO: Limpiar la secuencia del jugador antes de continuar a la siguiente ronda
+            // Continúa a la siguiente ronda del minijuego
             playerSequence.value = [];
             addStepOrGenerateNew();
             showSequence();
@@ -263,14 +307,19 @@ export default {
       }
     };
 
+    /**
+     * Inicia el minijuego desde cero.
+     */
     const startGame = () => {
       gameStarted.value = true;
       gameOver.value = false;
       currentSimonRound.value = 1;
       handleGameMessage("El juego ha comenzado. ¡Prepárate!", "happy");
 
+      // Establece los parámetros de dificultad y modificadores
       setGameParametersInternal(props.difficulty, props.aiModifiers);
 
+      // Genera la secuencia inicial
       if (nonRepeatingSequenceActive.value) {
         sequence.value = generateNewSequence(initialSequenceLength);
       } else {
@@ -281,10 +330,13 @@ export default {
         }
       }
 
-      playerSequence.value = []; // **AGREGADO: limpia la secuencia al iniciar el juego**
+      playerSequence.value = [];
       showSequence();
     };
 
+    /**
+     * Resetea el estado del juego a su estado inicial, antes de presionar "Empezar".
+     */
     const resetGame = () => {
       gameStarted.value = false;
       gameOver.value = false;
@@ -299,18 +351,22 @@ export default {
       setGameParametersInternal(props.difficulty, props.aiModifiers);
     };
 
+    /**
+     * Hook de ciclo de vida: se ejecuta cuando el componente se monta.
+     */
     onMounted(() => {
       setGameParametersInternal(props.difficulty, props.aiModifiers);
     });
 
+    /**
+     * Observador: resetea o reinicia el juego si la dificultad o los modificadores cambian desde el padre.
+     */
     watch(
       () => [props.difficulty, props.aiModifiers],
       ([newDifficulty, newModifiers]) => {
         const wasGameStarted = gameStarted.value;
         const wasGameOver = gameOver.value;
-
         setGameParametersInternal(newDifficulty, newModifiers);
-
         if (wasGameStarted || wasGameOver) {
           resetGame();
           if (wasGameStarted && !wasGameOver) {
@@ -321,6 +377,7 @@ export default {
       { deep: true }
     );
 
+    // Expone las variables y funciones necesarias para el <template>
     return {
       colors,
       gameStarted,
