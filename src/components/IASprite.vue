@@ -1,11 +1,15 @@
 <template>
+  <!-- Contenedor principal del sprite de la IA; se posiciona de forma fija -->
   <div
     class="ia-sprite-container"
     :class="{ 'is-intervening': isIntervening }"
     :style="{ top: topPosition + 'px', right: rightPosition + 'px' }"
   >
     <div class="ia-sprite-wrapper">
+      <!-- Imagen del sprite; cambia según la expresión -->
       <img :src="aiSpriteSrc" :alt="altText" class="ia-sprite" />
+
+      <!-- Burbuja de diálogo; aparece solo si hay message -->
       <div
         v-if="message"
         class="ia-dialog-bubble"
@@ -22,6 +26,13 @@ import { computed, ref, onUnmounted, watch } from "vue";
 
 export default {
   name: "IASprite",
+
+  /**
+   * Props del componente
+   * - message: texto a mostrar en la burbuja
+   * - expression: cambia el sprite según estado
+   * - isIntervening: si true, centra y detiene movimiento
+   */
   props: {
     message: {
       type: String,
@@ -38,7 +49,9 @@ export default {
       default: false,
     },
   },
+
   setup(props) {
+    /** Ruta de imagen según la expresión actual */
     const aiSpriteSrc = computed(() => {
       switch (props.expression) {
         case "happy":
@@ -50,22 +63,29 @@ export default {
         case "thinking":
           return "/images/ia/coca-thinking.svg";
         default:
-          return `/images/ia/coca.svg`;
+          return "/images/ia/coca.svg";
       }
     });
 
+    /** Texto alternativo para accesibilidad */
     const altText = computed(
       () => `Sprite de la IA en estado ${props.expression}`
     );
 
+    /** Posición dinámica del sprite en pantalla */
     const topPosition = ref(20);
     const rightPosition = ref(20);
-    let movementInterval;
 
+    /** Id del intervalo de movimiento; null cuando está parado */
+    let movementInterval = null;
+
+    /**
+     * Genera una nueva posición aleatoria dentro del viewport.
+     * Limita usando un ancho/alto estimado del sprite.
+     */
     const generateRandomPosition = () => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-
       const spriteWidth = 300;
       const spriteHeight = 300;
 
@@ -80,18 +100,25 @@ export default {
       rightPosition.value = newRight;
     };
 
+    /** Inicia el movimiento aleatorio (cada 4s) si no estaba iniciado */
     const startMovement = () => {
-      if (!movementInterval) {
-        generateRandomPosition();
-        movementInterval = setInterval(generateRandomPosition, 4000);
-      }
+      if (movementInterval) return; // evita duplicar intervalos
+      generateRandomPosition();
+      movementInterval = setInterval(generateRandomPosition, 4000);
     };
 
+    /** Detiene y limpia el intervalo de movimiento */
     const stopMovement = () => {
+      if (!movementInterval) return;
       clearInterval(movementInterval);
       movementInterval = null;
     };
 
+    /**
+     * Observa el flag isIntervening:
+     * - true: detiene el movimiento
+     * - false: lo inicia
+     */
     watch(
       () => props.isIntervening,
       (isIntervening) => {
@@ -104,6 +131,7 @@ export default {
       { immediate: true }
     );
 
+    /** Limpieza al desmontar el componente */
     onUnmounted(() => {
       stopMovement();
     });
@@ -119,49 +147,48 @@ export default {
 </script>
 
 <style scoped>
-/* --- ESTILOS DEL CONTENEDOR DE LA IA --- */
+/* Contenedor fijo y transiciones suaves entre posiciones */
 .ia-sprite-container {
   position: fixed;
   z-index: 100;
   pointer-events: none;
   transition: all 1.5s ease-in-out;
 }
-/* --- NUEVO: Contenedor para el sprite y la burbuja --- */
+
+/* Wrapper relativo para posicionar la burbuja respecto al sprite */
 .ia-sprite-wrapper {
   position: relative;
-  align-items: center; /* Alinea la burbuja con la parte inferior del sprite */
-  pointer-events: none; /* Permite clics dentro de este contenedor */
+  align-items: center;
+  pointer-events: none;
 }
 
-/* --- ESTILOS DEL SPRITE Y LA BURBUJA --- */
+/* Sprite con animación "flotar" y tamaño base */
 .ia-sprite {
-  width: 500px; /* Tamaño de la IA a 500px */
+  width: 500px;
   height: auto;
   transition: transform 0.3s ease-out, width 0.5s ease-in-out;
   pointer-events: none;
   animation: float 3s ease-in-out infinite;
-  object-fit: contain; /* Mantiene la proporción de la imagen dentro del contenedor */
-  align-self: flex-start; /* Para que la imagen no se estire */
+  object-fit: contain;
+  align-self: flex-start;
 }
 
-/* --- ESCALA PARA LAS DISTINTAS EXPRESIONES (AJUSTAR VALORES) --- */
+/* Estados (placeholder por si necesitás ajustar escalas/animaciones) */
 .ia-sprite.happy {
-  scale: 1; /* Ajusta este valor para que se vea del mismo tamaño */
+  scale: 1;
 }
-
 .ia-sprite.sad {
-  scale: 1; /* Ajusta este valor para que se vea del mismo tamaño */
+  scale: 1;
 }
-
 .ia-sprite.angry {
-  scale: 1; /* Ajusta este valor para que se vea del mismo tamaño */
+  scale: 1;
 }
-
 .ia-sprite.thinking {
-  scale: 1; /* Ajusta este valor si es necesario */
+  scale: 1;
   animation: pulse 1s infinite alternate;
 }
 
+/* Burbuja de diálogo posicionada relativa al wrapper */
 .ia-dialog-bubble {
   background-color: rgba(255, 255, 255, 0.8);
   color: #333;
@@ -170,13 +197,12 @@ export default {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   max-width: 200px;
   text-align: center;
-  position: relative;
+  position: absolute;
+  top: 100px;
+  right: 200px;
   opacity: 0;
   animation: fadeInBubble 0.3s forwards;
   pointer-events: auto;
-  position: absolute; /* ¡Ahora posicionamiento absoluto! */
-  top: 100px; /* Ajusta la distancia desde la parte superior del wrapper */
-  right: 200px; /* Ajusta la distancia desde la derecha del wrapper */
 }
 
 .ia-dialog-bubble p {
@@ -185,6 +211,7 @@ export default {
   line-height: 1.4;
 }
 
+/* Piquito de la burbuja */
 .ia-dialog-bubble::after {
   content: "";
   position: absolute;
@@ -198,15 +225,13 @@ export default {
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
 }
 
-/* --- ESTILOS DEL MODO DE INTERVENCIÓN (CENTRADO) --- */
+/* Modo intervención: centrado, mayor z-index y sin animaciones de flote */
 .ia-sprite-container.is-intervening {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-
   right: unset;
   bottom: unset;
-
   z-index: 1000;
   pointer-events: auto;
   flex-direction: column;
@@ -229,6 +254,7 @@ export default {
   text-align: center;
 }
 
+/* Piquito centrado para el modo intervención */
 .ia-dialog-bubble.intervening-bubble::after {
   top: 100%;
   bottom: unset;
@@ -238,7 +264,7 @@ export default {
   border-bottom: none;
 }
 
-/* --- KEYFRAMES DE ANIMACIÓN --- */
+/* Animaciones */
 @keyframes float {
   0% {
     transform: translateY(0px) rotateZ(0deg);
