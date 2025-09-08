@@ -7,10 +7,23 @@ const isMusicEnabled = ref(false);
 
 let bgmInstance = null;
 
+const getBaseUrl = () => {
+  // Si existe import.meta.env (Vite), úsalo
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.BASE_URL
+  ) {
+    return import.meta.env.BASE_URL;
+  }
+  // Si no, fallback a raíz
+  return "/";
+};
+
 const initBackgroundMusic = () => {
   if (!bgmInstance) {
     bgmInstance = new Howl({
-      src: [`${process.env.BASE_URL}sounds/Mechanical.mp3`],
+      src: [`${getBaseUrl()}sounds/Mechanical.mp3`],
       html5: true,
       loop: true,
       volume: 0.3,
@@ -19,8 +32,6 @@ const initBackgroundMusic = () => {
 };
 
 const toggleMusic = () => {
-  // Simplemente cambia el valor de la variable de estado
-  // El 'watch' que ya tienes se encargará de reproducir o detener la música
   isMusicEnabled.value = !isMusicEnabled.value;
 };
 
