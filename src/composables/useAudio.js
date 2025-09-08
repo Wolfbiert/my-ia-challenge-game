@@ -7,23 +7,10 @@ const isMusicEnabled = ref(false);
 
 let bgmInstance = null;
 
-const getBaseUrl = () => {
-  // Si existe import.meta.env (Vite), úsalo
-  if (
-    typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env.BASE_URL
-  ) {
-    return import.meta.env.BASE_URL;
-  }
-  // Si no, fallback a raíz
-  return "/";
-};
-
 const initBackgroundMusic = () => {
   if (!bgmInstance) {
     bgmInstance = new Howl({
-      src: [`${getBaseUrl()}sounds/Mechanical.mp3`],
+      src: ["/sounds/Mechanical.mp3"], // ✅ Ruta absoluta desde public/
       html5: true,
       loop: true,
       volume: 0.3,

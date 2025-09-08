@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <video autoplay muted loop id="background-video">
-      <source :src="`${baseUrl}videos/background.mp4`" type="video/mp4" />
+      <source src="/videos/background.mp4" type="video/mp4" />
       Tu navegador no soporta el video de fondo.
     </video>
 
@@ -13,31 +13,16 @@
 import { onMounted } from "vue";
 import useAudio from "./composables/useAudio.js";
 
-// Función segura para obtener BASE_URL
-function getBaseUrl() {
-  if (
-    typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env.BASE_URL
-  ) {
-    return import.meta.env.BASE_URL;
-  }
-  return "/";
-}
-
 export default {
   name: "App",
   setup() {
     const { initBackgroundMusic } = useAudio();
-    const baseUrl = getBaseUrl();
 
     onMounted(() => {
       initBackgroundMusic();
     });
 
-    return {
-      baseUrl,
-    };
+    return {};
   },
 };
 </script>
