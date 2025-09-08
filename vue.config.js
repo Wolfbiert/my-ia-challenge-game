@@ -1,14 +1,23 @@
 // vue.config.js
+const path = require("path");
+const webpack = require("webpack");
+
 module.exports = {
-  // --- TU CÓDIGO EXISTENTE ---
   chainWebpack: (config) => {
     config.plugin("define").tap((args) => {
       args[0].__VUE_PROD_HYDRATION_MISMATCH_DETAILS__ = JSON.stringify(false);
       return args;
     });
-  }, // <-- Asegúrate de que haya una coma aquí
+  },
 
-  // --- LA NUEVA CONFIGURACIÓN QUE DEBES AGREGAR ---
+  configureWebpack: {
+    plugins: [
+      new webpack.DefinePlugin({
+        __static: JSON.stringify(path.join(__dirname, "public")),
+      }),
+    ],
+  },
+
   pluginOptions: {
     electronBuilder: {
       builderOptions: {
@@ -17,7 +26,7 @@ module.exports = {
         copyright: "Copyright © 2025 Agustin Massoni",
         win: {
           target: "nsis",
-          icon: "public/images/icono.ico", // Asegúrate que este archivo exista
+          icon: "public/images/icono.ico",
         },
         nsis: {
           oneClick: false,

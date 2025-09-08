@@ -9,8 +9,13 @@ let bgmInstance = null;
 
 const initBackgroundMusic = () => {
   if (!bgmInstance) {
+    const soundPath =
+      process.env.NODE_ENV === "production"
+        ? `${__static}/sounds/Mechanical.mp3`
+        : "/sounds/Mechanical.mp3";
+
     bgmInstance = new Howl({
-      src: ["/sounds/Mechanical.mp3"], // ✅ Ruta absoluta desde public/
+      src: [soundPath],
       html5: true,
       loop: true,
       volume: 0.3,
