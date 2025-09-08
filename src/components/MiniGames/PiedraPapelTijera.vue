@@ -473,20 +473,23 @@ export default {
       stopTimer();
       playerChoice.value = choice;
 
-      // Consolidar el mensaje inicial y el de la habilidad en uno solo.
+      // La IA reacciona a tu elección o a tu habilidad, no comenta lo que hiciste.
       if (activeAbility.value === "desestabilizar") {
         handleGameMessage(
-          "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...",
+          "¡Habilidad 'Desestabilizar' activada! Esto me está dando un dolor de cabeza...",
           "sad"
         );
       } else if (activeAbility.value === "bloqueo") {
         handleGameMessage(
-          `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`,
+          `¡Bloqueo activado! No me digas que no podré usar ${iaBlockedChoice.value}...`,
           "angry"
         );
       } else {
-        // Si no se usa habilidad, solo muestra un mensaje simple.
-        handleGameMessage(`Tú elegiste: ${choice}...`, "thinking");
+        // La IA solo "piensa" en su jugada sin comentar la tuya.
+        handleGameMessage(
+          "Hmm... A ver qué puedo hacer contra eso.",
+          "thinking"
+        );
       }
 
       gameState.value = "iaThinking";
@@ -574,10 +577,10 @@ export default {
 
       if (playerWins.value === Math.ceil(totalRounds / 2)) {
         handleGameMessage(
-          "¡FELICIDADES! ¡Has ganado el desafío de Piedra, Papel o Tijera!",
-          "happy",
+          "¡No! ¡Me has superado! Has ganado el desafío de Piedra, Papel o Tijera.",
+          "sad",
           true // Intervención de la IA
-        ); // <-- USANDO EL ORQUESTADOR
+        );
         gameFinished.value = true;
         emit("round-finished", {
           playerScore: playerWins.value,
@@ -585,10 +588,10 @@ export default {
         });
       } else if (iaWins.value === Math.ceil(totalRounds / 2)) {
         handleGameMessage(
-          "¡OH NO! La IA te ha ganado en Piedra, Papel o Tijera.",
-          "angry",
+          "¡JA! ¡He ganado! Te he superado en este desafío. ¡Qué decepción para ti!",
+          "happy",
           true // Intervención de la IA
-        ); // <-- USANDO EL ORQUESTADOR
+        );
         gameFinished.value = true;
         emit("round-finished", {
           playerScore: playerWins.value,
@@ -607,21 +610,21 @@ export default {
           if (playerWins.value > iaWins.value) {
             // El jugador tiene más puntos
             handleGameMessage(
-              "¡Fin de las rondas! ¡Has ganado por puntos! Excelente estrategia.",
-              "happy",
+              "¡Fin de las rondas! Las estadísticas no mienten. Has ganado por puntos. Te doy mis respetos, humano.",
+              "normal",
               true // Intervención de la IA
             );
           } else if (iaWins.value > playerWins.value) {
             // La IA tiene más puntos
             handleGameMessage(
-              "Se acabaron los asaltos... He ganado yo esta vez por puntos. ¡Mejor suerte la próxima!",
-              "angry",
+              "El marcador final lo demuestra: he ganado yo. Mejor suerte la próxima vez, ¡si es que la hay!",
+              "happy",
               true // Intervención de la IA
             );
           } else {
             // Es un empate real
             handleGameMessage(
-              "¡Increíble! Después de todas las rondas, hemos empatado. Eres un rival formidable.",
+              "Increíble. Un resultado inesperado. Después de todas las rondas, hemos quedado en empate. Eres un rival formidable.",
               "normal",
               true // Intervención de la IA
             );
