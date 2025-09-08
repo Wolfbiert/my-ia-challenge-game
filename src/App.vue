@@ -1,7 +1,10 @@
 <template>
   <div id="app">
     <video autoplay muted loop id="background-video">
-      <source src="/videos/background.mp4" type="video/mp4" />
+      <source
+        :src="`${process.env.BASE_URL}videos/background.mp4`"
+        type="video/mp4"
+      />
       Tu navegador no soporta el video de fondo.
     </video>
 

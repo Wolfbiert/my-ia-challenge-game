@@ -10,7 +10,7 @@ let bgmInstance = null;
 const initBackgroundMusic = () => {
   if (!bgmInstance) {
     bgmInstance = new Howl({
-      src: ["/sounds/Mechanical.mp3"],
+      src: [`${process.env.BASE_URL}sounds/Mechanical.mp3`],
       html5: true,
       loop: true,
       volume: 0.3,
