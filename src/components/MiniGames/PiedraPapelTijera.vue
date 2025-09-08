@@ -472,25 +472,30 @@ export default {
     const playRound = async (choice) => {
       stopTimer();
       playerChoice.value = choice;
-      handleGameMessage(`Tú elegiste: ${choice}...`, "thinking"); // <-- USANDO EL ORQUESTADOR
+
+      // Consolidar el mensaje inicial y el de la habilidad en uno solo.
+      if (activeAbility.value === "desestabilizar") {
+        handleGameMessage(
+          "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...",
+          "sad"
+        );
+      } else if (activeAbility.value === "bloqueo") {
+        handleGameMessage(
+          `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`,
+          "angry"
+        );
+      } else {
+        // Si no se usa habilidad, solo muestra un mensaje simple.
+        handleGameMessage(`Tú elegiste: ${choice}...`, "thinking");
+      }
+
       gameState.value = "iaThinking";
       showExplosion.value = false;
       iaHasChosen.value = false;
       roundLoser.value = null;
 
-      if (activeAbility.value === "desestabilizar") {
-        handleGameMessage(
-          "¡Habilidad 'Desestabilizar' activada! La IA está desorientada...",
-          "sad"
-        ); // <-- USANDO EL ORQUESTADOR
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } else if (activeAbility.value === "bloqueo") {
-        handleGameMessage(
-          `¡Habilidad 'Bloqueo' activada! La IA NO puede usar ${iaBlockedChoice.value}...`,
-          "angry"
-        ); // <-- USANDO EL ORQUESTADOR
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+      // Se eliminan los `await` y las llamadas a `handleGameMessage` que estaban
+      // justo después de la elección del jugador.
 
       let currentChoiceIndex = 0;
       iaThinkingInterval = setInterval(() => {
@@ -501,7 +506,6 @@ export default {
       clearInterval(iaThinkingInterval);
 
       let finalIaMove;
-
       if (activeAbility.value === "acertijo") {
         finalIaMove = preChosenIaMove;
       } else if (activeAbility.value === "desestabilizar") {
@@ -633,16 +637,15 @@ export default {
     };
 
     const useAbility = (abilityName, blockedChoice = null) => {
-      // NUEVA LÍNEA para verificar si la habilidad está bloqueada por la IA
       if (blockedPlayerAbility.value === abilityName) {
         handleGameMessage(
           `¡Habilidad "${abilityName}" está bloqueada por la IA esta ronda!`,
           "angry"
-        ); // <-- USANDO EL ORQUESTADOR
+        );
         return;
       }
       if (abilityUsedThisRound.value) {
-        handleGameMessage("Ya has usado una habilidad en esta ronda.", "sad"); // <-- USANDO EL ORQUESTADOR
+        handleGameMessage("Ya has usado una habilidad en esta ronda.", "sad");
         return;
       }
 
@@ -653,7 +656,7 @@ export default {
         handleGameMessage(
           `Ya usaste la habilidad "${abilityName}" o no es el momento.`,
           "sad"
-        ); // <-- USANDO EL ORQUESTADOR
+        );
         return;
       }
 
@@ -662,20 +665,13 @@ export default {
       abilityUsedThisRound.value = true;
       abilitySound.play();
 
+      // Se eliminan los mensajes que confirmaban el uso de la habilidad.
+      // En su lugar, el mensaje principal de la habilidad se mostrará en `playRound`.
       if (abilityName === "bloqueo") {
         iaBlockedChoice.value = blockedChoice;
-        handleGameMessage(
-          `¡Habilidad 'Bloqueo' activada! La IA no podrá usar ${blockedChoice} esta ronda. Elige tu jugada.`,
-          "thinking"
-        ); // <-- USANDO EL ORQUESTADOR
-      } else if (abilityName === "desestabilizar") {
-        handleGameMessage(
-          `¡Habilidad 'Desestabilizar' activada! La IA tiene una alta probabilidad de equivocarse esta ronda. Elige tu jugada.`,
-          "thinking"
-        ); // <-- USANDO EL ORQUESTADOR
       } else if (abilityName === "acertijo") {
         const riddle = getRiddle(preChosenIaMove, props.difficulty);
-        handleGameMessage(`Acertijo de la IA: "${riddle}"`, "thinking"); // <-- USANDO EL ORQUESTADOR
+        handleGameMessage(`Acertijo de la IA: "${riddle}"`, "thinking");
         riddleActive.value = true;
       }
     };
