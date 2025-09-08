@@ -35,6 +35,14 @@
       >
         Reiniciar Desafío
       </button>
+
+      <button
+        v-if="challengeEnded"
+        @click="goToMenu"
+        class="action-button secondary"
+      >
+        Volver al Menú Principal
+      </button>
     </div>
 
     <!-- Barra lateral con marcador y sprite de la IA -->
@@ -66,6 +74,7 @@ import AdivinaNumero from "../components/MiniGames/AdivinaNumero.vue";
 import SimonDice from "../components/MiniGames/SimonDice.vue";
 import IASprite from "../components/IASprite.vue";
 import useGameOrchestrator from "../composables/useGameOrchestrator";
+import { useRouter } from "vue-router";
 
 export default {
   name: "GameView",
@@ -78,6 +87,7 @@ export default {
   setup() {
     // Acceso a la ruta actual para leer la dificultad desde query params
     const route = useRoute();
+    const router = useRouter();
 
     // Estado y funciones provenientes del orquestador de juego (IA)
     const {
@@ -220,6 +230,9 @@ export default {
     const resetChallenge = () => {
       startChallenge();
     };
+    const goToMenu = () => {
+      router.push({ name: "home" }); // o la ruta que uses para HomeView
+    };
 
     // Avanza a la siguiente ronda
     const goToNextRound = () => {
@@ -285,6 +298,7 @@ export default {
       aiGameModifiers,
       isAiIntervening,
       handleIaMessage,
+      goToMenu,
     };
   },
 };
