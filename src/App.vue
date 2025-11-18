@@ -20,7 +20,7 @@ export default {
 
     const videoPath = ref(
       process.env.NODE_ENV === "production"
-        ? `${__static}/videos/background.mp4`
+        ? `file://${__static}/videos/background.mp4`.replace(/\\/g, "/")
         : "/videos/background.mp4"
     );
 

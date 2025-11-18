@@ -11,7 +11,7 @@ const initBackgroundMusic = () => {
   if (!bgmInstance) {
     const soundPath =
       process.env.NODE_ENV === "production"
-        ? `${__static}/sounds/Mechanical.mp3`
+        ? `${__static}/sounds/Mechanical.mp3`.replace(/\\/g, "/")
         : "/sounds/Mechanical.mp3";
 
     bgmInstance = new Howl({
