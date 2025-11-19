@@ -1,36 +1,64 @@
 <template>
-  <div class="simon-dice-game-container">
-    <h2>Simón Dice</h2>
-    <div
-      class="simon-buttons-grid"
-      :class="{ 'sequence-playing': isShowingSequence }"
-    >
-      <div
-        v-for="(color, index) in colors"
-        :key="color"
-        :class="[
-          'simon-button',
-          color,
-          {
-            'active-glow': activeLight === color,
-            clickable: isPlayerTurn && !isShowingSequence,
-          },
-        ]"
-        @click="handlePlayerClick(index)"
-      ></div>
+  <div class="simon-container">
+    <div class="game-header">
+      <h2 class="neon-title">SIMON_SAYS</h2>
+      <div class="round-counter">
+        <span>RONDA</span>
+        <span class="round-val">{{ currentRoundNumber }}</span>
+      </div>
     </div>
 
-    <button
-      v-if="!gameStarted && !gameOver"
-      @click="startGame"
-      class="start-button"
+    <div
+      class="simon-board"
+      :class="{ locked: isShowingSequence }"
+      ref="boardRef"
     >
-      ¡Empezar!
-    </button>
+      <div
+        class="simon-btn green"
+        ref="btnGreen"
+        @mousedown="handleInput('green')"
+        @mouseup="releaseInput()"
+        @mouseleave="releaseInput()"
+      ></div>
+      <div
+        class="simon-btn red"
+        ref="btnRed"
+        @mousedown="handleInput('red')"
+        @mouseup="releaseInput()"
+        @mouseleave="releaseInput()"
+      ></div>
+      <div
+        class="simon-btn yellow"
+        ref="btnYellow"
+        @mousedown="handleInput('yellow')"
+        @mouseup="releaseInput()"
+        @mouseleave="releaseInput()"
+      ></div>
+      <div
+        class="simon-btn blue"
+        ref="btnBlue"
+        @mousedown="handleInput('blue')"
+        @mouseup="releaseInput()"
+        @mouseleave="releaseInput()"
+      ></div>
 
-    <button v-if="gameOver" @click="resetGame" class="reset-button">
-      Jugar Otra Vez
-    </button>
+      <div class="center-hub">
+        <div class="hub-label">AI-CORE</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button
+        v-if="!gameStarted && !gameOver"
+        @click="startGame"
+        class="neon-btn start"
+      >
+        INICIAR SECUENCIA
+      </button>
+      <button v-if="gameOver" @click="resetGame" class="neon-btn retry">
+        REINICIAR SISTEMA
+      </button>
+    </div>
   </div>
 </template>
 
@@ -38,285 +66,333 @@
 import { ref, onMounted, watch, markRaw } from "vue";
 import { Howl } from "howler";
 import useGameOrchestrator from "@/composables/useGameOrchestrator";
+import gsap from "gsap";
+import confetti from "canvas-confetti";
 
 export default {
   name: "SimonDice",
   emits: ["round-finished"],
   props: {
-    difficulty: {
-      type: String,
-      default: "normal",
-      validator: (value) => ["facil", "normal", "dificil"].includes(value),
-    },
-    aiModifiers: {
-      type: Object,
-      default: () => ({}),
-    },
+    difficulty: { type: String, default: "normal" },
+    aiModifiers: { type: Object, default: () => ({}) },
   },
-
   setup(props, { emit }) {
     const { handleGameMessage } = useGameOrchestrator();
 
-    const colors = ["red", "blue", "green", "yellow"];
-    let initialSequenceLength = 0;
-    let roundsToWinSimon = 0;
-    const lightDuration = ref(0);
-    const pauseBetweenLights = ref(0);
-    const nonRepeatingSequenceActive = ref(false);
+    // Refs para GSAP
+    const boardRef = ref(null);
+    const btnGreen = ref(null);
+    const btnRed = ref(null);
+    const btnYellow = ref(null);
+    const btnBlue = ref(null);
 
-    const soundMap = markRaw({
-      red: new Howl({ src: [process.env.BASE_URL + "sounds/red.mp3"] }),
-      blue: new Howl({ src: [process.env.BASE_URL + "sounds/blue.mp3"] }),
-      green: new Howl({ src: [process.env.BASE_URL + "sounds/green.mp3"] }),
-      yellow: new Howl({ src: [process.env.BASE_URL + "sounds/yellow.mp3"] }),
-    });
-
-    const setGameParametersInternal = (difficulty, modifiers = {}) => {
-      let baseInitialSequenceLength,
-        baseRoundsToWin,
-        baseLightDuration,
-        basePauseBetweenLights;
-
-      switch (difficulty) {
-        case "facil":
-          baseInitialSequenceLength = 2;
-          baseRoundsToWin = 2;
-          baseLightDuration = 800;
-          basePauseBetweenLights = 400;
-          break;
-        case "normal":
-          baseInitialSequenceLength = 3;
-          baseRoundsToWin = 3;
-          baseLightDuration = 600;
-          basePauseBetweenLights = 300;
-          break;
-        case "dificil":
-          baseInitialSequenceLength = 4;
-          baseRoundsToWin = 4;
-          baseLightDuration = 400;
-          basePauseBetweenLights = 200;
-          break;
-        default:
-          setGameParametersInternal("normal", modifiers);
-          return;
-      }
-
-      let actualSequenceLength = baseInitialSequenceLength;
-      let actualLightDuration = baseLightDuration;
-      let actualPauseBetweenLights = basePauseBetweenLights;
-
-      if (modifiers.sequenceDifficulty) {
-        actualSequenceLength = Math.max(
-          1,
-          Math.round(
-            baseInitialSequenceLength * modifiers.sequenceDifficulty.length
-          )
-        );
-        actualLightDuration = Math.max(
-          50,
-          Math.round(baseLightDuration * modifiers.sequenceDifficulty.speed)
-        );
-        actualPauseBetweenLights = Math.max(
-          50,
-          Math.round(
-            basePauseBetweenLights * modifiers.sequenceDifficulty.speed
-          )
-        );
-      }
-      if (modifiers.extremeSequence) {
-        actualSequenceLength = Math.max(
-          1,
-          Math.round(
-            baseInitialSequenceLength * modifiers.extremeSequence.length
-          )
-        );
-        actualLightDuration = Math.max(
-          50,
-          Math.round(baseLightDuration * modifiers.extremeSequence.speed)
-        );
-        actualPauseBetweenLights = Math.max(
-          50,
-          Math.round(basePauseBetweenLights * modifiers.extremeSequence.speed)
-        );
-      }
-
-      initialSequenceLength = actualSequenceLength;
-      roundsToWinSimon = baseRoundsToWin;
-      lightDuration.value = actualLightDuration;
-      pauseBetweenLights.value = actualPauseBetweenLights;
-      nonRepeatingSequenceActive.value =
-        modifiers.nonRepeatingSequence || false;
+    // MAPA DE COLORES NEÓN (Ajustados para máximo brillo)
+    const colorConfig = {
+      // Green -> Lime Green (más brillante)
+      green: { ref: btnGreen, color: "#39ff14" },
+      // Red -> Fluorescent Red
+      red: { ref: btnRed, color: "#ff073a" },
+      // Yellow -> Electric Yellow
+      yellow: { ref: btnYellow, color: "#fff01f" },
+      // Blue -> Cyan / Electric Blue (El azul puro #0000ff es muy oscuro)
+      blue: { ref: btnBlue, color: "#00f3ff" },
     };
+    const colors = ["green", "red", "yellow", "blue"];
 
+    // Estado
     const gameStarted = ref(false);
     const gameOver = ref(false);
     const sequence = ref([]);
     const playerSequence = ref([]);
     const isShowingSequence = ref(false);
     const isPlayerTurn = ref(false);
+
+    // CORRECCIÓN LÓGICA: Esta es la ronda del juego (1, 2, 3...)
+    const currentRoundNumber = ref(1);
+    // Esta es la longitud de la secuencia interna (depende de la dificultad)
+    let currentSequenceLength = 0;
+
     const activeLight = ref(null);
 
-    const currentSimonRound = ref(1);
+    // Parámetros dinámicos
+    let initialSequenceLength = 0;
+    let roundsToWinSimon = 0;
+    const lightDuration = ref(0);
+    const pauseBetweenLights = ref(0);
+    let nonRepeatingSequenceActive = false; // Ya no es ref
 
-    const generateNewSequence = (length) => {
-      const newSeq = [];
-      for (let i = 0; i < length; i++) {
-        const randomColorIndex = Math.floor(Math.random() * colors.length);
-        newSeq.push(colors[randomColorIndex]);
+    // Sonidos
+    const soundMap = markRaw({
+      green: new Howl({ src: [process.env.BASE_URL + "sounds/green.mp3"] }),
+      red: new Howl({ src: [process.env.BASE_URL + "sounds/red.mp3"] }),
+      yellow: new Howl({ src: [process.env.BASE_URL + "sounds/yellow.mp3"] }),
+      blue: new Howl({ src: [process.env.BASE_URL + "sounds/blue.mp3"] }),
+      error: new Howl({ src: [process.env.BASE_URL + "sounds/gameover.mp3"] }),
+      win: new Howl({ src: [process.env.BASE_URL + "sounds/win.mp3"] }),
+    });
+
+    // --- ANIMACIONES GSAP ---
+
+    const animatePress = (color) => {
+      const el = colorConfig[color].ref.value;
+      gsap.fromTo(
+        el,
+        {
+          backgroundColor: colorConfig[color].color,
+          boxShadow: `0 0 20px ${colorConfig[color].color}, 0 0 60px ${colorConfig[color].color}`,
+          scale: 0.95,
+          filter: "brightness(1.3)",
+        },
+        {
+          backgroundColor: "", // Vuelve al color base CSS
+          boxShadow: "none",
+          scale: 1,
+          filter: "brightness(1)",
+          duration: 0.4,
+          ease: "power2.out",
+        }
+      );
+    };
+
+    const animateSequenceStep = (color) => {
+      const el = colorConfig[color].ref.value;
+      gsap.fromTo(
+        el,
+        {
+          backgroundColor: colorConfig[color].color,
+          boxShadow: `0 0 30px ${colorConfig[color].color}, 0 0 80px ${colorConfig[color].color}`,
+          scale: 1.05,
+          filter: "brightness(1.5)",
+        },
+        {
+          backgroundColor: "", // Vuelve al color base CSS
+          boxShadow: "none",
+          scale: 1,
+          filter: "brightness(1)",
+          duration: lightDuration.value / 1000,
+          ease: "power1.out",
+        }
+      );
+    };
+
+    const animateError = () => {
+      gsap.to(boardRef.value, {
+        x: -10,
+        duration: 0.05,
+        repeat: 5,
+        yoyo: true,
+      });
+      gsap.to(".simon-btn", {
+        backgroundColor: "#ff0000",
+        duration: 0.1,
+        repeat: 3,
+        yoyo: true,
+        onComplete: () => {
+          gsap.to(".simon-btn", { backgroundColor: "" });
+        },
+      });
+    };
+
+    const animateWin = () => {
+      const tl = gsap.timeline();
+      tl.to([btnGreen.value, btnRed.value, btnBlue.value, btnYellow.value], {
+        backgroundColor: (i, el) => {
+          if (el === btnGreen.value) return colorConfig.green.color;
+          if (el === btnRed.value) return colorConfig.red.color;
+          if (el === btnBlue.value) return colorConfig.blue.color;
+          return colorConfig.yellow.color;
+        },
+        duration: 0.1,
+        stagger: 0.1,
+        repeat: 2,
+        yoyo: true,
+        onComplete: () => {
+          gsap.to(".simon-btn", { backgroundColor: "" });
+        },
+      });
+    };
+
+    // --- LÓGICA DEL JUEGO ---
+
+    const setGameParameters = (difficulty, modifiers = {}) => {
+      let base = { len: 2, win: 2, light: 800, pause: 400 };
+      if (difficulty === "normal")
+        base = { len: 3, win: 3, light: 600, pause: 300 };
+      if (difficulty === "dificil")
+        base = { len: 4, win: 4, light: 400, pause: 200 };
+
+      if (modifiers.sequenceDifficulty) {
+        base.len = Math.max(
+          1,
+          Math.round(base.len * modifiers.sequenceDifficulty.length)
+        );
+        base.light = Math.max(
+          50,
+          Math.round(base.light * modifiers.sequenceDifficulty.speed)
+        );
+        base.pause = Math.max(
+          50,
+          Math.round(base.pause * modifiers.sequenceDifficulty.speed)
+        );
       }
+      if (modifiers.extremeSequence) {
+        base.len = Math.max(
+          1,
+          Math.round(base.len * modifiers.extremeSequence.length)
+        );
+        base.light = Math.max(
+          50,
+          Math.round(base.light * modifiers.extremeSequence.speed)
+        );
+        base.pause = Math.max(
+          50,
+          Math.round(base.pause * modifiers.extremeSequence.speed)
+        );
+      }
+
+      initialSequenceLength = base.len;
+      roundsToWinSimon = base.win;
+      lightDuration.value = base.light;
+      pauseBetweenLights.value = base.pause;
+      nonRepeatingSequenceActive = modifiers.nonRepeatingSequence || false; // Asignación directa
+    };
+
+    const playSound = (color) => {
+      if (soundMap[color]) soundMap[color].play();
+    };
+
+    const generateSequence = (length) => {
+      const newSeq = [];
+      for (let i = 0; i < length; i++)
+        newSeq.push(colors[Math.floor(Math.random() * 4)]);
       return newSeq;
     };
 
-    const addStepOrGenerateNew = () => {
-      if (nonRepeatingSequenceActive.value) {
-        sequence.value = generateNewSequence(currentSimonRound.value);
+    const addStep = () => {
+      // CORRECCIÓN LÓGICA: Añade un paso a la secuencia, o genera una nueva de la misma longitud si es no repetitiva.
+      // La longitud de la secuencia debe ir aumentando con cada ronda.
+      currentSequenceLength++;
+      if (nonRepeatingSequenceActive) {
+        sequence.value = generateSequence(currentSequenceLength);
       } else {
-        const randomColorIndex = Math.floor(Math.random() * colors.length);
-        sequence.value.push(colors[randomColorIndex]);
+        sequence.value.push(colors[Math.floor(Math.random() * 4)]);
       }
     };
 
     const showSequence = async () => {
       isShowingSequence.value = true;
       isPlayerTurn.value = false;
-      playerSequence.value = []; // **AGREGADO: limpia la secuencia del jugador antes de mostrar la de Simón**
+      playerSequence.value = [];
       handleGameMessage(
-        `Ronda ${currentSimonRound.value}. ¡Memoriza la secuencia!`,
+        `MEMORIZA: Secuencia de nivel ${currentRoundNumber.value}`,
         "thinking"
-      );
+      ); // Muestra la ronda del juego
+      await new Promise((r) => setTimeout(r, 1000));
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      for (let i = 0; i < sequence.value.length; i++) {
-        activeLight.value = sequence.value[i];
-        soundMap[sequence.value[i]].play();
-        await new Promise((resolve) =>
-          setTimeout(resolve, lightDuration.value)
-        );
-        activeLight.value = null;
-        await new Promise((resolve) =>
-          setTimeout(resolve, pauseBetweenLights.value)
+      for (const color of sequence.value) {
+        playSound(color);
+        animateSequenceStep(color);
+        await new Promise((r) =>
+          setTimeout(r, lightDuration.value + pauseBetweenLights.value)
         );
       }
 
       isShowingSequence.value = false;
       isPlayerTurn.value = true;
-      handleGameMessage("¡Tu turno! Repite la secuencia.", "happy");
+      handleGameMessage("TU TURNO: Replica el patrón.", "normal");
     };
 
-    const handlePlayerClick = (index) => {
-      if (!isPlayerTurn.value || isShowingSequence.value || gameOver.value)
-        return;
+    const handleInput = (color) => {
+      if (!isPlayerTurn.value) return;
+      playSound(color);
+      animatePress(color);
 
-      const clickedColor = colors[index];
-      playerSequence.value.push(clickedColor);
-      soundMap[clickedColor].play();
+      playerSequence.value.push(color);
+      const index = playerSequence.value.length - 1;
 
-      const originalLight = activeLight.value;
-      activeLight.value = clickedColor;
-      setTimeout(() => {
-        activeLight.value = originalLight;
-      }, 100);
-
-      if (
-        playerSequence.value[playerSequence.value.length - 1] !==
-        sequence.value[playerSequence.value.length - 1]
-      ) {
+      if (playerSequence.value[index] !== sequence.value[index]) {
+        isPlayerTurn.value = false;
+        gameOver.value = true;
+        if (soundMap.error) soundMap.error.play();
+        animateError();
         handleGameMessage(
-          `¡Secuencia incorrecta! Perdiste en la ronda ${currentSimonRound.value}.`,
+          "¡ERROR DE SISTEMA! Secuencia incorrecta.",
           "sad",
           true
         );
-        gameOver.value = true;
-        isPlayerTurn.value = false;
         emit("round-finished", { playerScore: 0, iaScore: 1 });
         return;
       }
 
-      // NO HACEMOS NADA si el jugador ha acertado el botón pero aún le faltan más de la secuencia
-      // Esta es la lógica central: el código debe esperar a que el jugador complete la secuencia
-
       if (playerSequence.value.length === sequence.value.length) {
-        handleGameMessage(
-          "¡Correcto! Preparando la siguiente ronda...",
-          "normal"
-        );
         isPlayerTurn.value = false;
-
-        setTimeout(() => {
-          currentSimonRound.value++;
-          if (currentSimonRound.value > roundsToWinSimon) {
-            handleGameMessage(
-              "¡Has completado el desafío de Simón Dice!",
-              "happy",
-              true
-            );
-            gameOver.value = true;
-            emit("round-finished", { playerScore: 1, iaScore: 0 });
-          } else {
-            // AÑADIDO: Limpiar la secuencia del jugador antes de continuar a la siguiente ronda
-            playerSequence.value = [];
-            addStepOrGenerateNew();
+        // CORRECCIÓN LÓGICA: Comparamos con roundsToWinSimon para determinar la victoria
+        if (currentRoundNumber.value >= roundsToWinSimon) {
+          handleGameMessage(
+            "¡SINCRO COMPLETA! Has superado a la IA.",
+            "happy",
+            true
+          );
+          if (soundMap.win) soundMap.win.play();
+          animateWin();
+          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+          gameOver.value = true;
+          emit("round-finished", { playerScore: 1, iaScore: 0 });
+        } else {
+          handleGameMessage(
+            "Patrón aceptado. Aumentando complejidad...",
+            "normal"
+          );
+          currentRoundNumber.value++; // Avanza a la siguiente ronda del juego
+          setTimeout(() => {
+            addStep(); // Añade un nuevo paso a la secuencia (ahora más larga)
             showSequence();
-          }
-        }, 1500);
+          }, 1000);
+        }
       }
     };
+
+    const releaseInput = () => {};
 
     const startGame = () => {
       gameStarted.value = true;
       gameOver.value = false;
-      currentSimonRound.value = 1;
-      handleGameMessage("El juego ha comenzado. ¡Prepárate!", "happy");
+      currentRoundNumber.value = 1; // Empieza en la ronda 1 del juego
 
-      setGameParametersInternal(props.difficulty, props.aiModifiers);
+      setGameParameters(props.difficulty, props.aiModifiers);
 
-      if (nonRepeatingSequenceActive.value) {
-        sequence.value = generateNewSequence(initialSequenceLength);
+      // CORRECCIÓN LÓGICA: Inicializa la longitud de la secuencia
+      currentSequenceLength = initialSequenceLength;
+
+      if (nonRepeatingSequenceActive) {
+        sequence.value = generateSequence(currentSequenceLength);
       } else {
         sequence.value = [];
-        for (let i = 0; i < initialSequenceLength; i++) {
-          const randomColorIndex = Math.floor(Math.random() * colors.length);
-          sequence.value.push(colors[randomColorIndex]);
+        for (let i = 0; i < currentSequenceLength; i++) {
+          sequence.value.push(colors[Math.floor(Math.random() * 4)]);
         }
       }
-
-      playerSequence.value = []; // **AGREGADO: limpia la secuencia al iniciar el juego**
       showSequence();
     };
 
     const resetGame = () => {
       gameStarted.value = false;
       gameOver.value = false;
-      handleGameMessage('Presiona "¡Empezar!" para jugar.', "normal");
-      currentSimonRound.value = 1;
+      handleGameMessage("Sistema listo. Iniciar secuencia.", "normal");
+      currentRoundNumber.value = 1; // Vuelve a la ronda 1
+      currentSequenceLength = 0; // Reinicia la longitud de la secuencia
       sequence.value = [];
       playerSequence.value = [];
-      isShowingSequence.value = false;
-      isPlayerTurn.value = false;
-      activeLight.value = null;
-
-      setGameParametersInternal(props.difficulty, props.aiModifiers);
+      setGameParameters(props.difficulty, props.aiModifiers); // Resetea parámetros por si la dificultad cambió
     };
 
     onMounted(() => {
-      setGameParametersInternal(props.difficulty, props.aiModifiers);
+      setGameParameters(props.difficulty, props.aiModifiers);
     });
-
     watch(
       () => [props.difficulty, props.aiModifiers],
-      ([newDifficulty, newModifiers]) => {
-        const wasGameStarted = gameStarted.value;
-        const wasGameOver = gameOver.value;
-
-        setGameParametersInternal(newDifficulty, newModifiers);
-
-        if (wasGameStarted || wasGameOver) {
-          resetGame();
-          if (wasGameStarted && !wasGameOver) {
-            startGame();
-          }
-        }
+      () => {
+        resetGame();
       },
       { deep: true }
     );
@@ -325,207 +401,172 @@ export default {
       colors,
       gameStarted,
       gameOver,
-      sequence,
-      playerSequence,
       isShowingSequence,
       isPlayerTurn,
       activeLight,
-      currentSimonRound,
+      currentRoundNumber, // Renombrado para claridad
       startGame,
-      handlePlayerClick,
       resetGame,
+      handleInput,
+      releaseInput,
+      boardRef,
+      btnGreen,
+      btnRed,
+      btnYellow,
+      btnBlue,
     };
   },
 };
 </script>
 
 <style scoped>
-/* (The CSS remains the same) */
-.simon-dice-game-container {
-  background-color: #e8f5e9; /* Un verde muy claro para este juego */
-  padding: 40px;
-  border-radius: 15px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  text-align: center;
-  max-width: 600px;
-  margin: auto;
-  color: #333;
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap");
+
+.simon-container {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 450px; /* Para asegurar que tenga suficiente espacio */
+  /* ELIMINADO EL FONDO DEL COMPONENTE para que se fusione con el principal */
+  /* background: radial-gradient(circle at center, #1a0b2e 0%, #000000 100%); */
+  font-family: "Orbitron", sans-serif;
+  color: #fff; /* Texto blanco para el fondo oscuro general */
+  padding: 20px; /* Un poco de padding si el contenedor principal no lo tiene */
 }
 
-h2 {
-  color: #3f51b5; /* Azul índigo para el título */
-  margin-bottom: 15px;
-  font-size: 2.5em;
-}
-
-.round-info {
-  font-size: 1.2em;
-  font-weight: bold;
-  color: #666;
+.game-header {
   margin-bottom: 20px;
+  text-align: center;
 }
-
-.game-message {
-  font-size: 1.5em;
+.neon-title {
+  font-size: 2.5rem;
+  text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+  margin: 0;
+}
+.round-counter {
+  font-size: 1.2rem;
+  color: #aaa;
+  margin-top: 5px;
+}
+.round-val {
+  color: #00ffff;
   font-weight: bold;
-  margin: 25px 0;
-  padding: 10px 20px;
-  border-radius: 8px;
-  background-color: #e3f2fd; /* Default info color */
-  min-height: 2em; /* Para evitar saltos cuando el texto cambia */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 80%;
+  font-size: 1.5rem;
+  margin-left: 5px;
 }
 
-.game-message.info {
-  color: #1976d2; /* Azul para info */
-  background-color: #e3f2fd;
-}
-
-.game-message.success {
-  color: #388e3c; /* Verde oscuro para éxito */
-  background-color: #c8e6c9;
-}
-
-.game-message.error {
-  color: #d32f2f; /* Rojo oscuro para error */
-  background-color: #ffcdd2;
-}
-
-/* Contenedor de la cuadrícula de botones de Simón */
-.simon-buttons-grid {
+/* --- TABLERO SIMON --- */
+.simon-board {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  /* Fondo del tablero más sutil, sin sombra principal para fusionar */
+  background: rgba(0, 0, 0, 0.5); /* Semi-transparente */
+  border-radius: 50%;
+  padding: 15px;
+  /* box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 20px #000; */ /* Eliminado */
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 columnas iguales */
-  grid-template-rows: repeat(2, 1fr); /* 2 filas iguales */
-  gap: 20px; /* Espacio entre los botones */
-  width: 300px; /* Tamaño del área de juego de Simon */
-  height: 300px;
-  margin: 30px auto;
-  perspective: 1000px; /* Para efectos 3D si se quieren */
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 15px;
+  border: 2px solid rgba(0, 255, 255, 0.2); /* Borde sutil neón */
 }
 
-.simon-button {
+.simon-board.locked {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+.simon-btn {
   width: 100%;
   height: 100%;
-  border-radius: 15px; /* Bordes redondeados */
-  cursor: default; /* Por defecto no es clicable */
-  transition: background-color 0.2s ease-out, transform 0.1s ease-out,
-    box-shadow 0.2s ease;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: filter 0.1s;
+  position: relative;
+  /* Borde ya definido en los colores base para cada botón */
+}
+
+.simon-btn:active {
+  transform: scale(0.98);
+}
+
+/* Colores Base (Apagados - ¡AHORA MÁS VISIBLES!) */
+.green {
+  background: #004400; /* Un verde oscuro pero distinguible */
+  border-top-left-radius: 100%;
+  border: 2px solid #006600; /* Borde más claro para definición */
+}
+.red {
+  background: #440000;
+  border-top-right-radius: 100%;
+  border: 2px solid #660000;
+}
+.yellow {
+  background: #444400;
+  border-bottom-left-radius: 100%;
+  border: 2px solid #666600;
+}
+.blue {
+  background: #000044;
+  border-bottom-right-radius: 100%;
+  border: 2px solid #000066;
+}
+
+/* Centro del Tablero (Hub) */
+.center-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100px;
+  height: 100px;
+  background: #222;
+  border-radius: 50%;
+  border: 5px solid #111;
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  box-shadow: 0 0 15px #000;
+}
+.hub-label {
+  font-size: 0.7rem;
+  color: #555;
+  letter-spacing: 1px;
 }
 
-/* Colores base para cada botón */
-.simon-button.red {
-  background-color: #ff5252;
-} /* Rojo */
-.simon-button.blue {
-  background-color: #2196f3;
-} /* Azul */
-.simon-button.green {
-  background-color: #4caf50;
-} /* Verde */
-.simon-button.yellow {
-  background-color: #ffeb3b;
-} /* Amarillo */
-
-/* Estado de luz activa para la IA */
-.simon-button.active-glow {
-  filter: brightness(1.5); /* Más brillo */
-  transform: scale(1.05); /* Ligeramente más grande */
-  box-shadow: 0 0 25px 5px rgba(255, 255, 255, 0.8),
-    0 0 15px 5px var(--active-color); /* Doble brillo */
-  /* Usaremos JS para establecer --active-color en el estilo del elemento */
+/* --- CONTROLES --- */
+.controls {
+  margin-top: 30px;
 }
-.simon-button.red.active-glow {
-  --active-color: #ff5252;
-}
-.simon-button.blue.active-glow {
-  --active-color: #2196f3;
-}
-.simon-button.green.active-glow {
-  --active-color: #4caf50;
-}
-.simon-button.yellow.active-glow {
-  --active-color: #ffeb3b;
-}
-
-/* Cuando el jugador puede hacer clic */
-.simon-button.clickable {
+.neon-btn {
+  background: transparent;
+  border: 2px solid #00ffff;
+  color: #00ffff;
+  padding: 10px 30px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.1rem;
   cursor: pointer;
+  text-transform: uppercase;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+  transition: all 0.3s;
 }
-
-.simon-button.clickable:active {
-  transform: scale(0.95); /* Efecto de "presionar" */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+.neon-btn:hover {
+  background: #00ffff;
+  color: #000;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
 }
-
-/* Botones de control del juego */
-.start-button,
-.reset-button {
-  padding: 12px 30px;
-  font-size: 1.4em;
-  font-weight: bold;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.1s ease;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+.neon-btn.retry {
+  border-color: #ff0055;
+  color: #ff0055;
+  box-shadow: 0 0 10px rgba(255, 0, 85, 0.2);
 }
-
-.start-button {
-  background-color: #4caf50; /* Verde iniciar */
-  color: white;
-}
-.start-button:hover {
-  background-color: #388e3c;
-  transform: translateY(-2px);
-}
-.start-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.reset-button {
-  background-color: #f44336; /* Rojo reiniciar */
-  color: white;
-}
-.reset-button:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
-}
-.reset-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-/* Añadir clase al grid de botones cuando la secuencia se está mostrando */
-.simon-buttons-grid.sequence-playing {
-  pointer-events: none; /* Deshabilita clics en el contenedor */
-  opacity: 0.7; /* Reduce la opacidad para indicar inactividad */
-  filter: blur(1px); /* Efecto de desenfoque sutil */
-  transition: opacity 0.3s ease, filter 0.3s ease;
-}
-
-.simon-button {
-  /* ... (existing styles) ... */
-  transition: background-color 0.2s ease-out, transform 0.1s ease-out,
-    box-shadow 0.2s ease, filter 0.2s ease;
-}
-
-/* Añadir un efecto de click para el jugador, distinto al brillo de la IA */
-.simon-button.clickable:active {
-  transform: scale(0.92); /* Ligeramente más pequeño que el 0.95 anterior */
-  box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.5),
-    inset 0 0 10px 3px rgba(0, 0, 0, 0.3); /* Nuevo efecto de sombra interna */
+.neon-btn.retry:hover {
+  background: #ff0055;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
 }
 </style>
