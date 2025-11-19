@@ -1,13 +1,18 @@
 <template>
-  <div
-    class="ia-sprite-container"
-    :class="{ 'is-intervening': isIntervening }"
-    :style="{ top: topPosition + 'px', right: rightPosition + 'px' }"
-  >
+  <div ref="containerRef" class="ia-sprite-container">
     <div class="ia-sprite-wrapper">
-      <img :src="aiSpriteSrc" :alt="altText" class="ia-sprite" />
+      <img
+        ref="spriteRef"
+        :src="aiSpriteSrc"
+        :alt="altText"
+        class="ia-sprite"
+      />
 
-      <div v-if="message" class="ia-dialog-bubble">
+      <div
+        v-if="message"
+        class="ia-dialog-bubble"
+        :class="{ 'intervening-bubble': isIntervening }"
+      >
         <p>{{ message }}</p>
       </div>
     </div>
@@ -15,21 +20,26 @@
 </template>
 
 <script>
-import { computed, ref, onUnmounted, watch } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
+import gsap from "gsap";
 
 export default {
   name: "IASprite",
   props: {
     message: { type: String, default: "" },
-    expression: {
-      type: String,
-      default: "normal",
-      validator: (value) =>
-        ["normal", "happy", "sad", "angry", "thinking"].includes(value),
-    },
+    expression: { type: String, default: "normal" },
     isIntervening: { type: Boolean, default: false },
   },
   setup(props) {
+    const containerRef = ref(null);
+    const spriteRef = ref(null);
+
+    let roamTween = null;
+    let floatTween = null;
+
+    // CONSTANTE DE TAMAÑO: Ahora la IA mide 400px
+    const SPRITE_SIZE = 400;
+
     const aiSpriteSrc = computed(() => {
       switch (props.expression) {
         case "happy":
@@ -41,47 +51,103 @@ export default {
         case "thinking":
           return "/images/ia/coca-thinking.svg";
         default:
-          return "/images/ia/coca.svg";
+          return `/images/ia/coca.svg`;
       }
     });
-    const altText = computed(
-      () => `Sprite de la IA en estado ${props.expression}`
-    );
-    const topPosition = ref(20);
-    const rightPosition = ref(20);
-    let movementInterval = null;
 
-    const generateRandomPosition = () => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const spriteW = 300;
-      const spriteH = 300;
-      topPosition.value = Math.floor(Math.random() * (vh - spriteH));
-      rightPosition.value = Math.floor(Math.random() * (vw - spriteW));
+    const altText = computed(() => `Sprite de la IA: ${props.expression}`);
+
+    const startFloating = () => {
+      floatTween = gsap.to(spriteRef.value, {
+        y: -20, // Aumentado un poco el rango de flotación por el tamaño
+        duration: 1.8,
+        yoyo: true,
+        repeat: -1,
+        ease: "sine.inOut",
+      });
     };
 
-    const startMovement = () => {
-      if (movementInterval) return;
-      generateRandomPosition();
-      movementInterval = setInterval(generateRandomPosition, 4000);
+    const startRoaming = () => {
+      if (props.isIntervening) return;
+
+      // Ajustamos los límites con el nuevo tamaño de 400px
+      const maxX = window.innerWidth - SPRITE_SIZE;
+      const maxY = window.innerHeight - SPRITE_SIZE;
+
+      // Aseguramos que no sea negativo si la pantalla es pequeña
+      const safeMaxX = Math.max(0, maxX);
+      const safeMaxY = Math.max(0, maxY);
+
+      const randomX = Math.random() * safeMaxX;
+      const randomY = Math.random() * safeMaxY;
+
+      roamTween = gsap.to(containerRef.value, {
+        x: randomX,
+        y: randomY,
+        duration: "random(3, 5)",
+        ease: "power1.inOut",
+        onComplete: startRoaming,
+      });
     };
-    const stopMovement = () => {
-      if (!movementInterval) return;
-      clearInterval(movementInterval);
-      movementInterval = null;
+
+    const moveToCenter = () => {
+      if (roamTween) roamTween.kill();
+
+      // Recalculamos el centro con el nuevo tamaño
+      const centerX = window.innerWidth / 2 - SPRITE_SIZE / 2;
+      const centerY = window.innerHeight / 2 - SPRITE_SIZE / 2;
+
+      gsap.to(containerRef.value, {
+        x: centerX,
+        y: centerY,
+        duration: 1.2,
+        ease: "back.out(1.7)",
+        overwrite: true,
+      });
     };
 
     watch(
       () => props.isIntervening,
-      (val) => {
-        val ? stopMovement() : startMovement();
-      },
-      { immediate: true }
+      (isIntervening) => {
+        if (isIntervening) {
+          moveToCenter();
+        } else {
+          startRoaming();
+        }
+      }
     );
 
-    onUnmounted(() => stopMovement());
+    onMounted(() => {
+      const maxX = window.innerWidth - SPRITE_SIZE;
+      const maxY = window.innerHeight - SPRITE_SIZE;
 
-    return { aiSpriteSrc, altText, topPosition, rightPosition };
+      gsap.set(containerRef.value, {
+        x: Math.random() * Math.max(0, maxX),
+        y: Math.random() * Math.max(0, maxY),
+      });
+
+      startFloating();
+
+      if (props.isIntervening) {
+        moveToCenter();
+      } else {
+        startRoaming();
+      }
+    });
+
+    onUnmounted(() => {
+      if (roamTween) roamTween.kill();
+      if (floatTween) floatTween.kill();
+      gsap.killTweensOf(containerRef.value);
+      gsap.killTweensOf(spriteRef.value);
+    });
+
+    return {
+      aiSpriteSrc,
+      altText,
+      containerRef,
+      spriteRef,
+    };
   },
 };
 </script>
@@ -89,107 +155,103 @@ export default {
 <style scoped>
 .ia-sprite-container {
   position: fixed;
+  top: 0;
+  left: 0;
   z-index: 100;
   pointer-events: none;
-  transition: all 1.5s ease-in-out;
-}
-.ia-sprite-wrapper {
-  position: relative;
-  align-items: center;
-  pointer-events: none;
-}
-.ia-sprite {
-  width: 500px;
-  height: auto;
-  transition: transform 0.3s ease-out, width 0.5s ease-in-out;
-  pointer-events: none;
-  animation: float 3s ease-in-out infinite;
-  object-fit: contain;
-  align-self: flex-start;
-}
-.ia-sprite.happy,
-.ia-sprite.sad,
-.ia-sprite.angry,
-.ia-sprite.thinking {
-  scale: 1;
-}
-.ia-sprite.thinking {
-  animation: pulse 1s infinite alternate;
 }
 
-/* Burbuja igual para todos los modos */
+.ia-sprite-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ia-sprite {
+  width: 500px; /* TAMAÑO AUMENTADO A 400PX */
+  height: auto;
+  object-fit: contain;
+  /* Filtro sutil para darle profundidad */
+  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.3));
+}
+
+/* --- BURBUJA DE DIÁLOGO --- */
 .ia-dialog-bubble {
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: #ffffff;
   color: #333;
-  padding: 10px 15px;
-  border-radius: 20px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  max-width: 200px;
+  padding: 15px 25px;
+  border-radius: 25px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  max-width: 280px;
   text-align: center;
+  font-weight: bold;
+  font-size: 1.1em;
+
+  /* BORDE RESALTADO */
+  border: 4px solid #2c3e50; /* Borde oscuro y grueso */
+
+  /* Posicionamiento relativo al sprite */
   position: absolute;
-  top: 100px;
-  right: 200px;
+  bottom: 65%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* ACERCADO AL SPRITE (antes 10px, ahora 5px) */
+  margin-bottom: 5px;
+
   opacity: 0;
-  animation: fadeInBubble 0.3s forwards;
+  animation: popIn 0.3s forwards;
   pointer-events: auto;
 }
-.ia-dialog-bubble p {
-  margin: 0;
-  font-size: 0.95em;
-  line-height: 1.4;
+
+/* Estilo especial para la burbuja cuando interviene */
+.ia-dialog-bubble.intervening-bubble {
+  max-width: 450px;
+  font-size: 1.3em;
+  background-color: #e0ffe0;
+  border: 4px solid #28a745; /* Borde verde para intervenciones */
+  color: #155724;
+  z-index: 101;
 }
+
+/* Cola de la burbuja */
 .ia-dialog-bubble::after {
   content: "";
   position: absolute;
-  right: 15px;
-  bottom: -10px;
+  top: 100%; /* Justo debajo del borde */
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* Construcción del triángulo */
   width: 0;
   height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-top: 10px solid rgba(255, 255, 255, 0.8);
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 12px solid #ffffff; /* Coincide con el fondo */
+
+  /* TRUCO PARA EL BORDE DE LA COLA:
+     Usamos drop-shadow para simular el borde de 4px en el triángulo */
+  filter: drop-shadow(0 4px 0 #2c3e50);
+
+  /* Ajuste fino para que el borde del triángulo toque el borde de la burbuja */
+  margin-top: -4px;
 }
 
-/* En intervención solo detenemos animaciones y permitimos interacción */
-.ia-sprite-container.is-intervening {
-  z-index: 1000;
-  pointer-events: auto;
-  animation: none;
-}
-.ia-sprite-container.is-intervening .ia-sprite {
-  animation: none;
+/* Cola especial para intervención */
+.ia-dialog-bubble.intervening-bubble::after {
+  border-top-color: #e0ffe0;
+  filter: drop-shadow(0 4px 0 #28a745); /* Sombra verde */
 }
 
-@keyframes float {
-  0% {
-    transform: translateY(0px) rotateZ(0deg);
-  }
-  50% {
-    transform: translateY(-8px) rotateZ(5deg);
-  }
-  100% {
-    transform: translateY(0px) rotateZ(0deg);
-  }
-}
-@keyframes pulse {
-  from {
-    opacity: 0.8;
-    transform: scale(0.95) translateY(0px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(-8px);
-  }
-}
-@keyframes fadeInBubble {
+@keyframes popIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateX(-50%) scale(0.8);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-50%) scale(1);
   }
 }
 </style>

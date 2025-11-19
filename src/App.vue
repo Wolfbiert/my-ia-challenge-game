@@ -36,6 +36,12 @@ export default {
 </script>
 
 <style>
+@import url("https://fonts.googleapis.com/css2?family=VT323&display=swap");
+
+:root {
+  --font-vt323: "VT323", monospace;
+}
+
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
