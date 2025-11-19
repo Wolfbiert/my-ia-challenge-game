@@ -1,209 +1,180 @@
 <template>
-  <div class="piedra-papel-tijera-game-container">
-    <h2>Piedra, Papel o Tijera</h2>
+  <div class="battle-arena-container">
+    <h2 class="arena-title">⚔️ DUELO DE ELEMENTOS ⚔️</h2>
 
-    <div class="score-display">
-      <p>Ronda: {{ currentRound }} / {{ totalRounds }}</p>
-      <p>Tú: {{ playerWins }} | IA: {{ iaWins }}</p>
+    <div class="battle-hud">
+      <div class="hud-panel">
+        <span class="label">RONDA</span>
+        <span class="value">{{ currentRound }} / {{ totalRounds }}</span>
+      </div>
+      <div class="hud-score">
+        <span class="player-score p-score">{{ playerWins }}</span>
+        <span class="vs">VS</span>
+        <span class="ia-score">{{ iaWins }}</span>
+      </div>
     </div>
 
     <div
+      class="energy-bar-wrapper"
       v-if="gameState === 'playerChoice' && !gameFinished"
-      class="time-bar-container"
     >
-      <div class="time-bar" :style="{ width: timeBarWidth + '%' }"></div>
+      <div class="energy-bar" :style="{ width: timeBarWidth + '%' }"></div>
     </div>
 
-    <div class="controls-section">
+    <div class="battlefield">
       <div
-        class="abilities-section"
         v-if="gameState === 'playerChoice' && !gameFinished"
+        class="player-hand"
       >
-        <h3>Tus Habilidades (1 uso c/u)</h3>
-
-        <button
-          @click="useAbility('desestabilizar')"
-          :disabled="
-            abilitiesUsed.desestabilizar ||
-            blockedPlayerAbility === 'desestabilizar'
-          "
-          :class="{
-            'used-ability': abilitiesUsed.desestabilizar,
-            'is-blocked': blockedPlayerAbility === 'desestabilizar',
-          }"
-        >
-          Desestabilizar
-        </button>
-
-        <button
-          @click="useAbility('bloqueo', 'rock')"
-          :disabled="
-            abilitiesUsed.bloqueo || blockedPlayerAbility === 'bloqueo'
-          "
-          :class="{
-            'used-ability': abilitiesUsed.bloqueo,
-            'is-blocked': blockedPlayerAbility === 'bloqueo',
-          }"
-        >
-          Bloquear Piedra
-        </button>
-        <button
-          @click="useAbility('bloqueo', 'paper')"
-          :disabled="
-            abilitiesUsed.bloqueo || blockedPlayerAbility === 'bloqueo'
-          "
-          :class="{
-            'used-ability': abilitiesUsed.bloqueo,
-            'is-blocked': blockedPlayerAbility === 'bloqueo',
-          }"
-        >
-          Bloquear Papel
-        </button>
-        <button
-          @click="useAbility('bloqueo', 'scissors')"
-          :disabled="
-            abilitiesUsed.bloqueo || blockedPlayerAbility === 'bloqueo'
-          "
-          :class="{
-            'used-ability': abilitiesUsed.bloqueo,
-            'is-blocked': blockedPlayerAbility === 'bloqueo',
-          }"
-        >
-          Bloquear Tijera
-        </button>
-        <button
-          @click="useAbility('acertijo')"
-          :disabled="
-            abilitiesUsed.acertijo || blockedPlayerAbility === 'acertijo'
-          "
-          :class="{
-            'used-ability': abilitiesUsed.acertijo,
-            'is-blocked': blockedPlayerAbility === 'acertijo',
-          }"
-        >
-          Acertijo
-        </button>
-      </div>
-
-      <div
-        class="choices-buttons"
-        v-if="gameState === 'playerChoice' && !gameFinished"
-      >
-        <button @click="playRound('rock')">
-          <img src="/images/ppt/rock.png" alt="Piedra" class="choice-icon" />
-          <span>Piedra</span>
-        </button>
-        <button @click="playRound('paper')">
-          <img src="/images/ppt/paper.png" alt="Papel" class="choice-icon" />
-          <span>Papel</span>
-        </button>
-        <button @click="playRound('scissors')">
-          <img
-            src="/images/ppt/scissors.png"
-            alt="Tijera"
-            class="choice-icon"
-          />
-          <span>Tijera</span>
-        </button>
-      </div>
-
-      <div
-        v-if="gameState !== 'playerChoice' || gameFinished"
-        class="versus-section"
-      >
-        <div
-          :class="[
-            'player-display',
-            {
-              winner:
-                result === '¡Ganaste esta ronda!' &&
-                gameState === 'showingResult',
-              loser:
-                result === '¡Perdiste esta ronda!' &&
-                gameState === 'showingResult',
-              'round-over-loser':
-                gameState === 'roundOver' && roundLoser === 'player',
-              'game-finished-winner': gameFinished && playerWins > iaWins,
-              'game-finished-loser': gameFinished && playerWins < iaWins,
-            },
-          ]"
-        >
-          <img
-            :src="`/images/ppt/${playerChoice || 'rock'}.png`"
-            :alt="playerChoice"
-            class="chosen-icon"
-          />
-          <p>Tú</p>
-          <img
-            v-if="showExplosion && roundLoser === 'player'"
-            :src="`/images/ppt/explosion.gif?t=${explosionTimestamp}`"
-            alt="Explosión"
-            class="explosion-gif player-explosion"
-          />
-        </div>
-
-        <div class="vs-text-container">
-          <template v-if="gameState === 'iaThinking'">
-            <img
-              src="/images/ppt/thinking.gif"
-              alt="IA Pensando"
-              class="thinking-gif"
-            />
-            <span class="vs-text">IA Pensando...</span>
-            <span class="thinking-dots">...</span>
-          </template>
-          <span v-else-if="iaChoice" class="vs-text big-vs">VS</span>
-        </div>
-
-        <div
-          :class="[
-            'ia-display',
-            {
-              winner:
-                result === '¡Perdiste esta ronda!' &&
-                gameState === 'showingResult',
-              loser:
-                result === '¡Ganaste esta ronda!' &&
-                gameState === 'showingResult',
-              'round-over-loser':
-                gameState === 'roundOver' && roundLoser === 'ia',
-              'game-finished-winner': gameFinished && iaWins > playerWins,
-              'game-finished-loser': gameFinished && iaWins < playerWins,
-            },
-          ]"
-        >
-          <img
-            v-if="gameState === 'iaThinking' && iaThinkingDisplayChoice"
-            :src="`/images/ppt/${iaThinkingDisplayChoice}.png`"
-            alt="Elección IA"
-            class="chosen-icon iterating-icon"
-          />
-          <img
-            v-else-if="
-              gameState === 'iaChosen' ||
-              gameState === 'showingResult' ||
-              gameState === 'roundOver' ||
-              gameFinished
+        <div class="spell-cards">
+          <button
+            class="spell-card desestabilizar"
+            @click="useAbility('desestabilizar')"
+            :disabled="
+              abilitiesUsed.desestabilizar ||
+              blockedPlayerAbility === 'desestabilizar'
             "
-            :src="`/images/ppt/${iaChoice || 'rock'}.png`"
-            :alt="iaChoice"
-            class="chosen-icon"
-            :class="{ 'ia-chosen-animation': iaHasChosen }"
-          />
-          <p>IA</p>
-          <img
-            v-if="showExplosion && roundLoser === 'ia'"
-            :src="`/images/ppt/explosion.gif?t=${explosionTimestamp}`"
-            alt="Explosión"
-            class="explosion-gif ia-explosion"
-          />
+            :class="{
+              used: abilitiesUsed.desestabilizar,
+              blocked: blockedPlayerAbility === 'desestabilizar',
+            }"
+          >
+            <span>🌀</span> Desestabilizar
+          </button>
+
+          <div class="block-group">
+            <button
+              v-for="type in ['rock', 'paper', 'scissors']"
+              :key="type"
+              class="spell-card block"
+              @click="useAbility('bloqueo', type)"
+              :disabled="
+                abilitiesUsed.bloqueo || blockedPlayerAbility === 'bloqueo'
+              "
+              :class="{
+                used: abilitiesUsed.bloqueo,
+                blocked: blockedPlayerAbility === 'bloqueo',
+              }"
+            >
+              <span>🚫</span>
+              {{
+                type === "rock"
+                  ? "Piedra"
+                  : type === "paper"
+                  ? "Papel"
+                  : "Tijera"
+              }}
+            </button>
+          </div>
+
+          <button
+            class="spell-card acertijo"
+            @click="useAbility('acertijo')"
+            :disabled="
+              abilitiesUsed.acertijo || blockedPlayerAbility === 'acertijo'
+            "
+            :class="{
+              used: abilitiesUsed.acertijo,
+              blocked: blockedPlayerAbility === 'acertijo',
+            }"
+          >
+            <span>🧩</span> Acertijo
+          </button>
+        </div>
+
+        <div class="hand-cards">
+          <div class="battle-card" @click="playRound('rock')" ref="cardRock">
+            <div class="card-inner">
+              <img src="/images/ppt/rock.png" alt="Piedra" />
+              <span class="card-name">ROCA</span>
+              <span class="card-type">FUERZA</span>
+            </div>
+          </div>
+          <div class="battle-card" @click="playRound('paper')" ref="cardPaper">
+            <div class="card-inner">
+              <img src="/images/ppt/paper.png" alt="Papel" />
+              <span class="card-name">PAPEL</span>
+              <span class="card-type">INTELIGENCIA</span>
+            </div>
+          </div>
+          <div
+            class="battle-card"
+            @click="playRound('scissors')"
+            ref="cardScissors"
+          >
+            <div class="card-inner">
+              <img src="/images/ppt/scissors.png" alt="Tijera" />
+              <span class="card-name">TIJERA</span>
+              <span class="card-type">DESTREZA</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <button v-if="gameFinished" @click="startGame" class="reset-button">
-      Jugar de Nuevo
-    </button>
+      <div v-else-if="!gameFinished" class="clash-zone">
+        <div
+          class="clash-card player"
+          ref="playerClashCard"
+          :class="{
+            winner:
+              result === '¡Ganaste esta ronda!' &&
+              gameState === 'showingResult',
+            loser:
+              result === '¡Perdiste esta ronda!' &&
+              gameState === 'showingResult',
+            destroyed: roundLoser === 'player' && showExplosion,
+          }"
+        >
+          <img :src="`/images/ppt/${playerChoice || 'rock'}.png`" />
+          <div
+            class="clash-overlay"
+            v-if="
+              result === '¡Perdiste esta ronda!' &&
+              gameState === 'showingResult'
+            "
+          ></div>
+        </div>
+
+        <div class="clash-center">
+          <div
+            v-if="gameState === 'iaThinking'"
+            class="ia-thinking-effect"
+            ref="iaThinkingEffect"
+          ></div>
+          <span v-else class="vs-text">VS</span>
+        </div>
+
+        <div
+          class="clash-card ia"
+          ref="iaClashCard"
+          :class="{
+            winner:
+              result === '¡Perdiste esta ronda!' &&
+              gameState === 'showingResult',
+            loser:
+              result === '¡Ganaste esta ronda!' &&
+              gameState === 'showingResult',
+            hidden: gameState === 'iaThinking',
+            destroyed: roundLoser === 'ia' && showExplosion,
+          }"
+        >
+          <div v-if="gameState === 'iaThinking'" class="card-back">?</div>
+          <img v-else :src="`/images/ppt/${iaChoice || 'rock'}.png`" />
+
+          <div
+            class="clash-overlay"
+            v-if="
+              result === '¡Ganaste esta ronda!' && gameState === 'showingResult'
+            "
+          ></div>
+        </div>
+      </div>
+
+      <div v-if="gameFinished" class="end-game-screen">
+        <h3>{{ playerWins > iaWins ? "¡VICTORIA!" : "DERROTA" }}</h3>
+        <button @click="startGame" class="reset-button">JUGAR OTRA VEZ</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -211,76 +182,40 @@
 import { ref, onMounted, watch, nextTick } from "vue";
 import { Howl } from "howler";
 import useGameOrchestrator from "@/composables/useGameOrchestrator.js";
+import gsap from "gsap";
+import confetti from "canvas-confetti";
 
 export default {
   name: "PiedraPapelTijera",
-  emits: ["round-finished"], // <-- 'update-ia-message' eliminado
+  emits: ["round-finished"],
   props: {
-    difficulty: {
-      type: String,
-      default: "normal",
-      validator: (value) => ["facil", "normal", "dificil"].includes(value),
-    },
-    aiModifiers: {
-      type: Object,
-      default: () => ({}),
-    },
+    difficulty: { type: String, default: "normal" },
+    aiModifiers: { type: Object, default: () => ({}) },
   },
   setup(props, { emit }) {
     const { handleGameMessage, aiGameModifiers, decideAndApplyAiModifiers } =
-      useGameOrchestrator(); // <-- Usando la función del orquestador
+      useGameOrchestrator();
 
+    // Refs para animaciones GSAP
+    const playerClashCard = ref(null);
+    const iaClashCard = ref(null);
+    const iaThinkingEffect = ref(null);
+
+    // Estado del juego
     const playerChoice = ref(null);
     const iaChoice = ref(null);
     const result = ref("");
     const choices = ["rock", "paper", "scissors"];
-
     const gameState = ref("playerChoice");
-    const iaThinkingDisplayChoice = ref(null);
+
+    // Estado de la IA
     let iaThinkingInterval = null;
     const iaHasChosen = ref(false);
+
+    // Efectos visuales
     const showExplosion = ref(false);
     const roundLoser = ref(null);
     const explosionTimestamp = ref(Date.now());
-
-    const playerWins = ref(0);
-    const iaWins = ref(0);
-    const totalRounds = 5;
-    const currentRound = ref(1);
-    const gameFinished = ref(false);
-
-    const abilitiesUsed = ref({
-      desestabilizar: false,
-      bloqueo: false,
-      acertijo: false,
-    });
-    const activeAbility = ref(null);
-    const iaBlockedChoice = ref(null);
-    const abilityUsedThisRound = ref(false);
-
-    const blockedPlayerAbility = ref(null);
-
-    watch(
-      () => aiGameModifiers.value,
-      (newModifiers) => {
-        if (newModifiers.blockPlayerAbility) {
-          const possibleAbilities = ["desestabilizar", "bloqueo", "acertijo"];
-          const abilityToBlock =
-            possibleAbilities[
-              Math.floor(Math.random() * possibleAbilities.length)
-            ];
-          blockedPlayerAbility.value = abilityToBlock;
-        } else {
-          blockedPlayerAbility.value = null;
-        }
-      },
-      { immediate: true, deep: true }
-    );
-    const timeRemaining = ref(0);
-    const timeBarWidth = ref(100);
-    let timerInterval = null;
-    let maxTimePerRound = 0;
-    const riddleActive = ref(false);
 
     const explosionSound = new Howl({
       src: ["/sounds/explosion.mp3"],
@@ -291,28 +226,117 @@ export default {
       volume: 0.7,
     });
 
+    // Puntuación
+    const playerWins = ref(0);
+    const iaWins = ref(0);
+    const totalRounds = 5;
+    const currentRound = ref(1);
+    const gameFinished = ref(false);
+
+    // Habilidades
+    const abilitiesUsed = ref({
+      desestabilizar: false,
+      bloqueo: false,
+      acertijo: false,
+    });
+    const activeAbility = ref(null);
+    const iaBlockedChoice = ref(null);
+    const abilityUsedThisRound = ref(false);
+    const blockedPlayerAbility = ref(null);
+
+    // Tiempo
+    const timeRemaining = ref(0);
+    const timeBarWidth = ref(100);
+    let timerInterval = null;
+    let maxTimePerRound = 0;
+    const riddleActive = ref(false);
+
+    // Parámetros IA
     let iaPredictionChance = 0;
     let iaThinkingDuration = 0;
+    // Variables que causaban error restauradas a su uso:
     let iaPatternLogic = "random";
+    let iaNextPatternMove = null;
+
+    let iaThinkingAnimation = null;
+
+    // --- WATCHERS ---
+
+    watch(
+      () => aiGameModifiers.value,
+      (newModifiers) => {
+        if (newModifiers.blockPlayerAbility) {
+          const possibleAbilities = ["desestabilizar", "bloqueo", "acertijo"];
+          blockedPlayerAbility.value =
+            possibleAbilities[
+              Math.floor(Math.random() * possibleAbilities.length)
+            ];
+        } else {
+          blockedPlayerAbility.value = null;
+        }
+      },
+      { immediate: true, deep: true }
+    );
+
+    watch(showExplosion, (newValue) => {
+      if (newValue) {
+        explosionSound.play();
+        const target =
+          roundLoser.value === "player"
+            ? playerClashCard.value
+            : iaClashCard.value;
+        if (target) {
+          gsap.to(target, { x: "+=10", yoyo: true, repeat: 9, duration: 0.05 });
+        }
+      }
+    });
+
+    watch(gameState, (newVal) => {
+      if (newVal === "iaThinking") {
+        nextTick(() => {
+          if (iaThinkingEffect.value) {
+            iaThinkingAnimation = gsap.to(iaThinkingEffect.value, {
+              rotation: 360,
+              scale: 1.2,
+              boxShadow: "0 0 20px #f1c40f",
+              repeat: -1,
+              yoyo: true,
+              duration: 1,
+              ease: "power1.inOut",
+            });
+          }
+        });
+      } else {
+        if (iaThinkingAnimation) {
+          iaThinkingAnimation.kill();
+          iaThinkingAnimation = null;
+          if (iaThinkingEffect.value)
+            gsap.set(iaThinkingEffect.value, { clearProps: "all" });
+        }
+      }
+    });
+
+    // --- LÓGICA ---
 
     const setGameParameters = (difficulty) => {
+      iaNextPatternMove = null;
       switch (difficulty) {
         case "facil":
           iaPredictionChance = 0;
           iaThinkingDuration = 2000;
-          maxTimePerRound = 120 * 1000;
+          maxTimePerRound = 120000;
           iaPatternLogic = "random";
           break;
         case "normal":
           iaPredictionChance = 0;
           iaThinkingDuration = 3000;
-          maxTimePerRound = 60 * 1000;
+          maxTimePerRound = 60000;
           iaPatternLogic = "random";
           break;
         case "dificil":
           iaPredictionChance = 0.3;
           iaThinkingDuration = 3500;
-          maxTimePerRound = 30 * 1000;
+          maxTimePerRound = 30000;
           iaPatternLogic = "complex-pattern";
           break;
       }
@@ -339,11 +363,10 @@ export default {
       iaChoice.value = null;
       result.value = "";
       handleGameMessage(
-        `Ronda ${currentRound.value} de ${totalRounds}. Elige tu jugada...`,
+        `Ronda ${currentRound.value} de ${totalRounds}. ¡Elige tu carta!`,
         "info"
-      ); // <-- USANDO EL ORQUESTADOR
+      );
       gameState.value = "playerChoice";
-      iaThinkingDisplayChoice.value = null;
       iaHasChosen.value = false;
       showExplosion.value = false;
       roundLoser.value = null;
@@ -352,9 +375,13 @@ export default {
       riddleActive.value = false;
       abilityUsedThisRound.value = false;
 
+      // Resetear estilos GSAP de las cartas (solo si existen)
+      if (playerClashCard.value)
+        gsap.set(playerClashCard.value, { clearProps: "all" });
+      if (iaClashCard.value) gsap.set(iaClashCard.value, { clearProps: "all" });
+
       setGameParameters(props.difficulty);
       blockedPlayerAbility.value = null;
-
       decideAndApplyAiModifiers(
         "PiedraPapelTijera",
         playerWins.value,
@@ -368,6 +395,7 @@ export default {
       startTimer();
     };
 
+    // Lógica COMPLETA restaurada para usar las variables
     const getIaChoice = (
       playerChoiceMade,
       currentAbility,
@@ -377,46 +405,58 @@ export default {
       let chosenIaMove;
       const availableChoices = [...choices];
 
+      // 1. Bloqueo del jugador
       if (currentAbility === "bloqueo" && iaBlockedChoice.value) {
         const indexToRemove = availableChoices.indexOf(iaBlockedChoice.value);
-        if (indexToRemove > -1) {
-          availableChoices.splice(indexToRemove, 1);
-        }
+        if (indexToRemove > -1) availableChoices.splice(indexToRemove, 1);
       }
 
       const randomNumber = Math.random();
 
+      // 2. Lógica de Error (Desestabilizar)
       if (iaErrorChance > 0 && playerChoiceMade) {
         if (randomNumber < iaErrorChance) {
           if (playerChoiceMade === "rock") chosenIaMove = "scissors";
           else if (playerChoiceMade === "paper") chosenIaMove = "rock";
           else if (playerChoiceMade === "scissors") chosenIaMove = "paper";
 
+          // Validar si el error cae en una opción bloqueada
           if (
             currentAbility === "bloqueo" &&
             iaBlockedChoice.value === chosenIaMove
           ) {
-            const alternatives = availableChoices.filter(
+            const alt = availableChoices.filter(
               (c) => c !== iaBlockedChoice.value
             );
-            if (alternatives.length > 0) {
-              chosenIaMove =
-                alternatives[Math.floor(Math.random() * alternatives.length)];
-            } else {
-              chosenIaMove =
-                choices[Math.floor(Math.random() * choices.length)];
-            }
+            chosenIaMove =
+              alt.length > 0
+                ? alt[Math.floor(Math.random() * alt.length)]
+                : choices[0];
           }
           return chosenIaMove;
         }
       }
 
-      if (randomNumber < actualIaPredictionChance && playerChoiceMade) {
+      // 3. Patrón Complejo (Aquí se usan las variables que daban error)
+      if (iaPatternLogic === "complex-pattern" && iaNextPatternMove) {
+        if (availableChoices.includes(iaNextPatternMove)) {
+          chosenIaMove = iaNextPatternMove;
+          iaNextPatternMove = null;
+        }
+      }
+
+      // 4. Predicción
+      if (
+        !chosenIaMove &&
+        randomNumber < actualIaPredictionChance &&
+        playerChoiceMade
+      ) {
         if (playerChoiceMade === "rock") chosenIaMove = "paper";
         else if (playerChoiceMade === "paper") chosenIaMove = "scissors";
         else if (playerChoiceMade === "scissors") chosenIaMove = "rock";
       }
 
+      // 5. Lógica General (Random o Patrón simple)
       if (!chosenIaMove) {
         if (iaPatternLogic === "random") {
           chosenIaMove =
@@ -424,6 +464,7 @@ export default {
               Math.floor(Math.random() * availableChoices.length)
             ];
         } else if (iaPatternLogic === "complex-pattern") {
+          // Sesgo sutil en difícil
           const bias = Math.random();
           if (bias < 0.5 && availableChoices.includes("paper"))
             chosenIaMove = "paper";
@@ -444,21 +485,25 @@ export default {
         }
       }
 
+      // 6. Validación final de bloqueo
       if (
         currentAbility === "bloqueo" &&
         chosenIaMove === iaBlockedChoice.value
       ) {
-        const alternativeChoices = availableChoices.filter(
+        const alternatives = availableChoices.filter(
           (c) => c !== iaBlockedChoice.value
         );
-        if (alternativeChoices.length > 0) {
-          chosenIaMove =
-            alternativeChoices[
-              Math.floor(Math.random() * alternativeChoices.length)
-            ];
-        } else {
-          chosenIaMove = choices[Math.floor(Math.random() * choices.length)];
-        }
+        chosenIaMove =
+          alternatives.length > 0
+            ? alternatives[Math.floor(Math.random() * alternatives.length)]
+            : choices[0];
+      }
+
+      // Setear siguiente movimiento del patrón si aplica (Aquí se asigna la variable)
+      if (iaPatternLogic === "complex-pattern") {
+        if (chosenIaMove === "rock") iaNextPatternMove = "paper";
+        else if (chosenIaMove === "paper") iaNextPatternMove = "scissors";
+        else if (chosenIaMove === "scissors") iaNextPatternMove = "rock";
       }
 
       return chosenIaMove;
@@ -472,66 +517,95 @@ export default {
     const playRound = async (choice) => {
       stopTimer();
       playerChoice.value = choice;
-
-      // La IA reacciona a tu elección o a tu habilidad, no comenta lo que hiciste.
-      if (activeAbility.value === "desestabilizar") {
-        handleGameMessage(
-          "¡Habilidad 'Desestabilizar' activada! Esto me está dando un dolor de cabeza...",
-          "sad"
-        );
-      } else if (activeAbility.value === "bloqueo") {
-        handleGameMessage(
-          `¡Bloqueo activado! No me digas que no podré usar ${iaBlockedChoice.value}...`,
-          "angry"
-        );
-      } else {
-        // La IA solo "piensa" en su jugada sin comentar la tuya.
-        handleGameMessage(
-          "Hmm... A ver qué puedo hacer contra eso.",
-          "thinking"
-        );
-      }
-
+      handleGameMessage(
+        `Has invocado: ${choice.toUpperCase()}`,
+        "thinking",
+        false,
+        5000
+      );
       gameState.value = "iaThinking";
       showExplosion.value = false;
       iaHasChosen.value = false;
       roundLoser.value = null;
 
-      // Se eliminan los `await` y las llamadas a `handleGameMessage` que estaban
-      // justo después de la elección del jugador.
+      // NOTA: lastPlayerChoice se eliminó porque ya no usamos la estrategia "counter-player" simple.
 
-      let currentChoiceIndex = 0;
-      iaThinkingInterval = setInterval(() => {
-        iaThinkingDisplayChoice.value = choices[currentChoiceIndex];
-        currentChoiceIndex = (currentChoiceIndex + 1) % choices.length;
-      }, 150);
-      await new Promise((resolve) => setTimeout(resolve, iaThinkingDuration));
-      clearInterval(iaThinkingInterval);
+      if (activeAbility.value === "desestabilizar") {
+        handleGameMessage(
+          "¡Desestabilizar! La IA pierde concentración...",
+          "sad",
+          false,
+          3000
+        );
+        await new Promise((r) => setTimeout(r, 1000));
+      } else if (activeAbility.value === "bloqueo") {
+        handleGameMessage(
+          `¡Bloqueo! ${iaBlockedChoice.value} anulado.`,
+          "angry",
+          false,
+          3000
+        );
+        await new Promise((r) => setTimeout(r, 1000));
+      }
 
+      // IA Piensa
+      await new Promise((r) => setTimeout(r, iaThinkingDuration));
+
+      // Decisión Final IA
       let finalIaMove;
-      if (activeAbility.value === "acertijo") {
-        finalIaMove = preChosenIaMove;
-      } else if (activeAbility.value === "desestabilizar") {
+      if (activeAbility.value === "acertijo") finalIaMove = preChosenIaMove;
+      else if (activeAbility.value === "desestabilizar")
         finalIaMove = getIaChoice(playerChoice.value, null, 0, 0.75);
-      } else {
+      else
         finalIaMove = getIaChoice(
           playerChoice.value,
           activeAbility.value,
           iaPredictionChance,
           0
         );
-      }
 
       iaChoice.value = finalIaMove;
-      iaThinkingDisplayChoice.value = finalIaMove;
       gameState.value = "iaChosen";
       iaHasChosen.value = true;
-      await new Promise((resolve) => setTimeout(resolve, 600));
 
+      // --- ANIMACIÓN GSAP: CHOQUE ---
+      await nextTick();
+      if (playerClashCard.value && iaClashCard.value) {
+        const tl = gsap.timeline();
+        // 1. Retroceder
+        tl.to([playerClashCard.value, iaClashCard.value], {
+          scale: 0.9,
+          duration: 0.2,
+        })
+          // 2. Chocar
+          .to(playerClashCard.value, {
+            x: 60,
+            rotate: 15,
+            duration: 0.15,
+            ease: "power1.in",
+          })
+          .to(
+            iaClashCard.value,
+            { x: -60, rotate: -15, duration: 0.15, ease: "power1.in" },
+            "<"
+          )
+          // 3. Rebote
+          .to([playerClashCard.value, iaClashCard.value], {
+            x: 0,
+            rotate: 0,
+            scale: 1.05,
+            duration: 0.4,
+            ease: "elastic.out(1, 0.5)",
+          });
+
+        await new Promise((r) => setTimeout(r, 600));
+      }
+
+      // Determinar Ganador
       let roundWinner;
       if (playerChoice.value === iaChoice.value) {
         result.value = "¡Empate!";
-        handleGameMessage("¡Empate! Un digno rival.", "normal"); // <-- USANDO EL ORQUESTADOR
+        handleGameMessage("Choque igualado. ¡Empate!", "normal");
         roundWinner = "draw";
         roundLoser.value = null;
       } else if (
@@ -540,57 +614,83 @@ export default {
         (playerChoice.value === "scissors" && iaChoice.value === "paper")
       ) {
         result.value = "¡Ganaste esta ronda!";
-        handleGameMessage("¡Ganaste esta ronda! ¡Maldición!", "sad"); // <-- USANDO EL ORQUESTADOR
+        handleGameMessage("¡Impacto crítico! Ganaste la ronda.", "sad");
         roundWinner = "player";
         roundLoser.value = "ia";
         playerWins.value++;
       } else {
         result.value = "¡Perdiste esta ronda!";
-        handleGameMessage("¡Perdiste! ¡Gané esta vez!", "happy"); // <-- USANDO EL ORQUESTADOR
+        handleGameMessage("¡Defensa rota! La IA gana la ronda.", "happy");
         roundWinner = "ia";
         roundLoser.value = "player";
         iaWins.value++;
       }
 
       gameState.value = "showingResult";
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((r) => setTimeout(r, 100));
 
+      // --- ANIMACIÓN DE DERROTA (KNOCKOUT) ---
       if (roundWinner !== "draw") {
-        explosionTimestamp.value = Date.now();
-        showExplosion.value = true;
-        await nextTick();
-        await new Promise((resolve) => setTimeout(resolve, 50));
         explosionSound.play();
+        showExplosion.value = true; // Esto activa el brillo rojo/borde si tienes estilos CSS para ello
 
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        gameState.value = "roundOver";
+        const targetCard =
+          roundLoser.value === "player"
+            ? playerClashCard.value
+            : iaClashCard.value;
 
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-        showExplosion.value = false;
+        // Dirección del golpe: Si pierde el jugador, vuela a la izquierda. Si pierde la IA, a la derecha.
+        const knockDir = roundLoser.value === "player" ? -1 : 1;
+
+        if (targetCard) {
+          const tl = gsap.timeline();
+
+          // 1. Impacto: La carta retrocede bruscamente y cambia de color
+          tl.to(targetCard, {
+            x: 30 * knockDir, // Retroceso
+            rotation: 10 * knockDir, // Giro por el golpe
+            scale: 0.9,
+            filter: "brightness(2) sepia(1) hue-rotate(-50deg) saturate(5)", // Flash rojo brillante (daño)
+            duration: 0.1,
+            ease: "power4.out",
+          })
+            // 2. Caída: La gravedad hace su trabajo
+            .to(targetCard, {
+              y: 600, // Cae fuera de la pantalla
+              rotation: 90 * knockDir, // Gira mientras cae
+              opacity: 0,
+              filter: "grayscale(100%) brightness(0.5)", // Se apaga mientras cae
+              duration: 0.8,
+              ease: "power2.in", // Comienza lento, termina rápido (gravedad)
+            });
+
+          await new Promise((r) => setTimeout(r, 900));
+        }
       } else {
-        showExplosion.value = false;
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        gameState.value = "roundOver";
+        // Si es empate, solo una pausa breve
+        await new Promise((r) => setTimeout(r, 800));
       }
 
       riddleActive.value = false;
 
+      // Fin de Juego
       if (playerWins.value === Math.ceil(totalRounds / 2)) {
         handleGameMessage(
-          "¡No! ¡Me has superado! Has ganado el desafío de Piedra, Papel o Tijera.",
-          "sad",
-          true // Intervención de la IA
+          "¡VICTORIA SUPREMA! Has derrotado a la IA.",
+          "happy",
+          true
         );
         gameFinished.value = true;
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
         emit("round-finished", {
           playerScore: playerWins.value,
           iaScore: iaWins.value,
         });
       } else if (iaWins.value === Math.ceil(totalRounds / 2)) {
         handleGameMessage(
-          "¡JA! ¡He ganado! Te he superado en este desafío. ¡Qué decepción para ti!",
-          "happy",
-          true // Intervención de la IA
+          "¡DERROTA! La IA domina el campo de batalla.",
+          "angry",
+          true
         );
         gameFinished.value = true;
         emit("round-finished", {
@@ -600,36 +700,14 @@ export default {
       } else {
         currentRound.value++;
         if (currentRound.value <= totalRounds) {
-          // Si no es la última ronda, la reinicia
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((r) => setTimeout(r, 1000));
           resetRound();
         } else {
-          // --- BLOQUE CORREGIDO ---
-          // Se acabaron las rondas, ahora determinamos el ganador por puntos.
-
-          if (playerWins.value > iaWins.value) {
-            // El jugador tiene más puntos
-            handleGameMessage(
-              "¡Fin de las rondas! Las estadísticas no mienten. Has ganado por puntos. Te doy mis respetos, humano.",
-              "normal",
-              true // Intervención de la IA
-            );
-          } else if (iaWins.value > playerWins.value) {
-            // La IA tiene más puntos
-            handleGameMessage(
-              "El marcador final lo demuestra: he ganado yo. Mejor suerte la próxima vez, ¡si es que la hay!",
-              "happy",
-              true // Intervención de la IA
-            );
-          } else {
-            // Es un empate real
-            handleGameMessage(
-              "Increíble. Un resultado inesperado. Después de todas las rondas, hemos quedado en empate. Eres un rival formidable.",
-              "normal",
-              true // Intervención de la IA
-            );
-          }
-
+          handleGameMessage(
+            "¡Duelo finalizado! Resultado calculado.",
+            "normal",
+            true
+          );
           gameFinished.value = true;
           emit("round-finished", {
             playerScore: playerWins.value,
@@ -642,24 +720,20 @@ export default {
     const useAbility = (abilityName, blockedChoice = null) => {
       if (blockedPlayerAbility.value === abilityName) {
         handleGameMessage(
-          `¡Habilidad "${abilityName}" está bloqueada por la IA esta ronda!`,
+          `¡Habilidad "${abilityName}" BLOQUEADA por la IA!`,
           "angry"
         );
         return;
       }
       if (abilityUsedThisRound.value) {
-        handleGameMessage("Ya has usado una habilidad en esta ronda.", "sad");
+        handleGameMessage("Solo una habilidad por turno.", "sad");
         return;
       }
-
       if (
         abilitiesUsed.value[abilityName] ||
         gameState.value !== "playerChoice"
       ) {
-        handleGameMessage(
-          `Ya usaste la habilidad "${abilityName}" o no es el momento.`,
-          "sad"
-        );
+        handleGameMessage("Habilidad agotada o momento incorrecto.", "sad");
         return;
       }
 
@@ -668,13 +742,10 @@ export default {
       abilityUsedThisRound.value = true;
       abilitySound.play();
 
-      // Se eliminan los mensajes que confirmaban el uso de la habilidad.
-      // En su lugar, el mensaje principal de la habilidad se mostrará en `playRound`.
-      if (abilityName === "bloqueo") {
-        iaBlockedChoice.value = blockedChoice;
-      } else if (abilityName === "acertijo") {
+      if (abilityName === "bloqueo") iaBlockedChoice.value = blockedChoice;
+      else if (abilityName === "acertijo") {
         const riddle = getRiddle(preChosenIaMove, props.difficulty);
-        handleGameMessage(`Acertijo de la IA: "${riddle}"`, "thinking");
+        handleGameMessage(`ENIGMA: "${riddle}"`, "thinking", false, 10000);
         riddleActive.value = true;
       }
     };
@@ -682,53 +753,38 @@ export default {
     const getRiddle = (iaChoice, difficulty) => {
       const riddles = {
         rock: {
-          facil: "Soy fuerte y rompo la madera. ¿Qué soy?",
-          normal:
-            "Mi núcleo es duro, pero mi superficie puede ser pulida. No me doblo fácilmente.",
-          dificil:
-            "En el arte de los encuentros, anulo lo afilado y soy la base de toda construcción. Soy el principio inmóvil.",
+          facil: "Soy fuerte y rompo la madera.",
+          normal: "Mi núcleo es duro, no me doblo.",
+          dificil: "Soy el principio inmóvil que rompe filos.",
         },
         paper: {
-          facil: "Me usas para escribir y me doblo fácilmente. ¿Qué soy?",
-          normal:
-            "Puedo cubrir lo más duro y envolver lo que se afila. Me pliego con facilidad.",
-          dificil:
-            "Mi extensión es infinita, mi abrazo puede ser envolvente o sofocante. Domino el origen de la palabra.",
+          facil: "Me usas para escribir.",
+          normal: "Envuelvo lo duro, me pliego fácil.",
+          dificil: "Mi extensión domina la piedra.",
         },
         scissors: {
-          facil: "Tengo dos hojas y corto papel. ¿Qué soy?",
-          normal:
-            "Mis brazos se cruzan en un abrazo letal, cortando la extensión blanda.",
-          dificil:
-            "Soy el filo de la decisión, la separación del continuo. Dos caminos que convergen para dividir.",
+          facil: "Corto papel.",
+          normal: "Mis brazos cruzados son letales.",
+          dificil: "Dos caminos convergen para dividir.",
         },
       };
-      return riddles[iaChoice][difficulty] || "Mmm... ¡Tendrás que adivinar!";
+      return riddles[iaChoice]?.[difficulty] || "Adivina...";
     };
 
     const startTimer = () => {
       timeRemaining.value = maxTimePerRound;
       timeBarWidth.value = 100;
-
       if (timerInterval) clearInterval(timerInterval);
-
       timerInterval = setInterval(() => {
         timeRemaining.value -= 100;
         timeBarWidth.value = (timeRemaining.value / maxTimePerRound) * 100;
-
         if (timeRemaining.value <= 0) {
           clearInterval(timerInterval);
-          timeRemaining.value = 0;
-          timeBarWidth.value = 0;
-          handleGameMessage(
-            "¡Tiempo agotado! Tu elección fue aleatoria.",
-            "sad"
-          ); // <-- USANDO EL ORQUESTADOR
+          handleGameMessage("¡TIEMPO AGOTADO! Elección forzada.", "sad");
           riddleActive.value = false;
           playRound(choices[Math.floor(Math.random() * choices.length)]);
         }
       }, 100);
-
       preCalculateIaChoice();
     };
 
@@ -743,11 +799,10 @@ export default {
       setGameParameters(props.difficulty);
       startGame();
     });
-
     watch(
       () => props.difficulty,
-      (newDifficulty) => {
-        setGameParameters(newDifficulty);
+      (newVal) => {
+        setGameParameters(newVal);
         startGame();
       }
     );
@@ -758,8 +813,6 @@ export default {
       result,
       choices,
       gameState,
-      iaThinkingDisplayChoice,
-      iaHasChosen,
       showExplosion,
       roundLoser,
       explosionTimestamp,
@@ -778,210 +831,401 @@ export default {
       useAbility,
       iaBlockedChoice,
       abilityUsedThisRound,
+      playerClashCard,
+      iaClashCard,
+      iaThinkingEffect,
     };
   },
 };
 </script>
 
 <style scoped>
-.piedra-papel-tijera-game-container {
+/* --- CONTENEDOR PRINCIPAL (ARENA) --- */
+.battle-arena-container {
+  width: 100%;
+  height: 100%;
+  /* Fondo oscuro y moderno para la arena de batalla */
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background-color: #f0f8ff;
-  border-radius: 15px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  color: #333;
-  width: 100%;
-  max-width: 600px;
-  margin: auto;
-  min-height: 450px;
-  position: relative;
+  color: #fff;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  position: relative;
 }
 
-h2 {
-  color: #2c3e50;
-  margin-bottom: 20px;
-  font-size: 2.2em;
+.arena-title {
+  font-size: 1.8rem;
+  margin: 10px 0;
+  background: -webkit-linear-gradient(#eee, #333);
+  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 900;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-.game-message {
-  font-size: 1.3em;
-  margin-bottom: 30px;
-  min-height: 1.5em;
-  text-align: center;
+/* --- HUD (Marcador y Rondas) --- */
+.battle-hud {
+  display: flex;
+  justify-content: space-between;
+  width: 90%;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 8px 20px;
+  border-radius: 8px;
+  margin-bottom: 5px;
+  border: 1px solid #444;
 }
 
-.game-message.info {
-  color: #3498db;
+.hud-panel .label {
+  display: block;
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
 }
-.game-message.success {
-  color: #27ae60;
+
+.hud-panel .value {
+  font-size: 1.2rem;
+  font-weight: bold;
 }
-.game-message.error {
+
+.hud-score {
+  font-size: 1.5rem;
+  font-weight: bold;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.player-score {
+  color: #4caf50;
+}
+.ia-score {
+  color: #f44336;
+}
+.vs {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+/* --- BARRA DE ENERGÍA (TIEMPO) --- */
+.energy-bar-wrapper {
+  width: 90%;
+  height: 6px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.energy-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9800, #ff5722);
+  transition: width 0.1s linear;
+}
+
+/* --- CAMPO DE BATALLA --- */
+.battlefield {
+  flex-grow: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  padding-bottom: 20px;
+}
+
+/* --- MANO DEL JUGADOR (Fase de Selección) --- */
+.player-hand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  animation: slideUp 0.5s ease-out;
+}
+
+/* Cartas de Hechizo (Habilidades) */
+.spell-cards {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 5px;
+}
+
+.spell-card {
+  background: #34495e;
+  border: 1px solid #7f8c8d;
+  color: #ecf0f1;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.spell-card:hover:not(:disabled) {
+  background: #3b5998;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.spell-card.used {
+  opacity: 0.5;
+  cursor: default;
+  text-decoration: line-through;
+  border-color: #555;
+}
+
+.spell-card.blocked {
+  border-color: #e74c3c;
   color: #e74c3c;
+  background: #2c0505;
+  opacity: 0.7;
+  cursor: not-allowed;
 }
-.game-message.warning {
-  color: #f39c12;
+.spell-card.blocked span {
+  filter: grayscale(100%);
 }
 
-/* Botones de elección */
-.choices-buttons {
+.block-group {
+  display: flex;
+  gap: 5px;
+}
+
+/* Cartas de Batalla (Opciones) */
+.hand-cards {
   display: flex;
   gap: 20px;
-  margin-bottom: 40px;
   justify-content: center;
 }
 
-.choices-buttons button {
-  background-color: #3498db;
-  color: white;
-  border: none;
+.battle-card {
+  width: 110px;
+  height: 160px;
+  background: linear-gradient(to bottom, #2c3e50, #000);
+  border: 2px solid #ecf0f1;
   border-radius: 10px;
-  padding: 15px 25px;
-  font-size: 1.1em;
   cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-}
-
-.choices-buttons button:hover {
-  background-color: #2980b9;
-  transform: translateY(-5px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-}
-
-.choice-icon {
-  width: 60px;
-  height: 60px;
-  object-fit: contain;
-}
-
-/* Sección de Enfrentamiento (VS) */
-.versus-section {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 100px; /* 🔄 ANTES: 60px */
-  margin-top: 40px; /* 🔄 ANTES: 20px */
-  width: 100%;
   position: relative;
-  min-height: 180px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+}
+
+.battle-card:hover {
+  transform: translateY(-15px) scale(1.05);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
+  border-color: #f1c40f; /* Dorado al hacer hover */
+}
+
+.card-inner {
+  text-align: center;
+  z-index: 2;
+}
+
+.card-inner img {
+  width: 50px;
+  height: 50px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+}
+
+.card-name {
+  display: block;
+  font-weight: bold;
+  color: #ecf0f1;
+  font-size: 1rem;
+  letter-spacing: 1px;
+}
+
+.card-type {
+  display: block;
+  font-size: 0.6rem;
+  color: #95a5a6;
+  margin-top: 5px;
+  text-transform: uppercase;
+}
+
+/* --- ZONA DE CHOQUE (Fase de Resultado) --- */
+.clash-zone {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 80px; /* Espacio inicial para la animación */
+  width: 100%;
+  height: 100%;
+}
+
+.clash-card {
+  width: 130px;
+  height: 190px;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  position: relative;
+  /* Importante para GSAP */
+  transform-origin: center center;
   overflow: hidden;
 }
 
-.player-display,
-.ia-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  background-color: #ecf0f1;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 150px;
-  /* Transición para winner/loser y también para la clase de desaparición */
-  transition: transform 0.5s ease-out, opacity 0.5s ease-out,
-    box-shadow 0.3s ease;
-  position: relative;
-  z-index: 1;
-}
-
-/* Animación de entrada para el icono de la IA cuando ya ha elegido */
-.ia-chosen-animation {
-  animation: iaEnter 0.4s ease-out forwards;
-}
-@keyframes iaEnter {
-  from {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Para el icono que itera mientras la IA piensa */
-.iterating-icon {
-  animation: popIn 0.2s ease-out;
-}
-@keyframes popIn {
-  from {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Clases para ganador/perdedor (se activan en gameState 'showingResult') */
-.player-display.loser,
-.ia-display.loser {
-  /* La escala se aplica solo cuando es perdedor y se muestra el resultado */
-  transform: scale(0.5) translateY(20px);
-  opacity: 1; /* Es visible cuando se está mostrando el resultado y es perdedor */
-}
-
-.player-display.winner,
-.ia-display.winner {
-  transform: scale(1.1);
-  box-shadow: 0 0 20px 5px rgba(46, 204, 113, 0.6);
-}
-
-/* NUEVA REGLA: El perdedor se desvanece y achica cuando la ronda ha terminado */
-/* Esto se activa después de la explosión (gameState cambia a 'roundOver') */
-.player-display.round-over-loser,
-.ia-display.round-over-loser {
-  opacity: 0; /* Lo hace completamente transparente */
-  transform: scale(0); /* Lo achica a cero */
-  /* La transición ya está definida en .player-display, .ia-display */
-}
-
-/* Iconos de elección del VS (dentro de player-display/ia-display) */
-.chosen-icon {
-  width: 100px;
-  height: 100px;
+.clash-card img {
+  width: 80px;
+  height: 80px;
   object-fit: contain;
 }
 
-/* Centro: VS / IA Pensando */
-.vs-text-container {
+.clash-card.player {
+  border: 5px solid #4caf50; /* Borde verde jugador */
+  background: radial-gradient(circle, #fff, #e8f5e9);
+}
+
+.clash-card.ia {
+  border: 5px solid #f44336; /* Borde rojo IA */
+  background: radial-gradient(circle, #fff, #ffebee);
+}
+
+.card-back {
+  font-size: 4rem;
+  color: #ccc;
+  font-weight: 900;
+  opacity: 0.5;
+}
+
+/* Efecto visual de IA Pensando (Círculo giratorio) */
+.ia-thinking-effect {
+  width: 40px;
+  height: 40px;
+  border: 4px dashed #ff9800;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ff9800;
+  /* La animación de rotación se maneja con GSAP, pero ponemos estilos base */
+}
+
+.clash-center {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  font-weight: bold;
-  color: #555;
-  min-width: 80px;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  text-align: center;
+  align-items: center;
+  width: 60px;
+  height: 60px;
 }
 
 .vs-text {
-  font-size: 1.5em;
-  margin-top: 5px;
+  font-size: 2.5rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #fff;
+  text-shadow: 3px 3px 0 #000;
 }
 
-.vs-text.big-vs {
-  font-size: 3em;
-  animation: fadeIn 0.5s ease-out;
+/* Estados Finales de Ronda */
+.clash-card.winner {
+  transform: scale(1.1);
+  box-shadow: 0 0 40px #f1c40f; /* Brillo dorado */
+  z-index: 10;
+  border-color: #f1c40f;
 }
+
+.clash-card.loser {
+  filter: grayscale(100%) brightness(0.5);
+  opacity: 0.6;
+}
+
+/* Overlay para oscurecer la carta perdedora */
+.clash-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+/* Efecto de Explosión (si usaras una imagen, pero ahora usamos destrucción CSS/GSAP) */
+.explosion-effect {
+  position: absolute;
+  width: 180%;
+  height: 180%;
+  top: -40%;
+  left: -40%;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* --- PANTALLA FINAL DEL JUEGO --- */
+.end-game-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.5s;
+}
+
+.end-game-screen h3 {
+  font-size: 3.5rem;
+  color: #f1c40f;
+  text-shadow: 0 0 20px rgba(241, 196, 15, 0.8);
+  margin-bottom: 30px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+.reset-button {
+  padding: 15px 40px;
+  background: #f1c40f;
+  color: #000;
+  font-weight: bold;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
+  transition: all 0.2s;
+}
+
+.reset-button:hover {
+  transform: scale(1.1);
+  background: #fff;
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -989,254 +1233,5 @@ h2 {
   to {
     opacity: 1;
   }
-}
-
-.thinking-dots {
-  font-size: 3em;
-  animation: blink 1s infinite steps(1, end);
-}
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.thinking-gif {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  animation: thinkingPulse 1.5s infinite alternate;
-}
-@keyframes thinkingPulse {
-  from {
-    opacity: 0.7;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* GIF de Explosión */
-.explosion-gif {
-  position: absolute;
-  display: block;
-  width: 100%; /* 🔄 ANTES: 150px */
-  height: 100%; /* 🔄 ANTES: 150px */
-  object-fit: contain;
-  z-index: 3;
-  animation: explode 1.2s forwards; /* 🔄 Duración ajustada para que desaparezca más rápido */
-  pointer-events: none; /* 🔒 Asegura que no bloquee clics debajo */
-}
-
-/* Posicionar la explosión sobre el jugador o la IA */
-.player-explosion {
-  top: 0; /* 🔄 ANTES: 50% */
-  left: 0; /* 🔄 ANTES: 50% */
-  transform: none; /* 🔄 ANTES: translate(-50%, -50%) */
-  width: 100%;
-  height: 100%;
-}
-
-.ia-explosion {
-  top: 0;
-  left: 0;
-  transform: none;
-  width: 100%;
-  height: 100%;
-}
-
-@keyframes explode {
-  0% {
-    opacity: 1;
-    transform: scale(0.1);
-  }
-  10% {
-    opacity: 1;
-    transform: scale(0.8);
-  }
-  80% {
-    opacity: 1;
-    transform: scale(1.5);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.8);
-  }
-}
-
-.result-message {
-  font-size: 2em;
-  font-weight: bold;
-  margin-top: 30px;
-  animation: fadeInScale 0.5s ease-out;
-}
-@keyframes fadeInScale {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.result-message.success {
-  color: #27ae60;
-}
-.result-message.error {
-  color: #e74c3c;
-}
-.result-message.info {
-  color: #3498db;
-}
-
-.reset-button {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 50px;
-  padding: 12px 25px;
-  font-size: 1.1em;
-  cursor: pointer;
-  margin-top: 30px;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-.reset-button:hover {
-  background-color: #218838;
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-
-.score-display {
-  display: flex;
-  justify-content: space-around;
-  width: 100%;
-  margin-bottom: 20px;
-  font-size: 1.4em;
-  font-weight: bold;
-  color: #555;
-  background-color: #e0f2f7;
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.score-display p {
-  margin: 0;
-}
-
-.time-bar-container {
-  width: 90%;
-  height: 15px;
-  background-color: #ddd;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  overflow: hidden;
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.time-bar {
-  height: 100%;
-  background-color: #e74c3c; /* Rojo para el tiempo que se agota */
-  transition: width 0.1s linear; /* Transición suave para el decrecimiento */
-  border-radius: 10px;
-}
-
-.abilities-section {
-  display: flex;
-  flex-wrap: wrap; /* Permite que los botones se ajusten en varias líneas */
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: #f7f7f7;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.abilities-section h3 {
-  width: 100%; /* El título ocupa todo el ancho */
-  text-align: center;
-  margin-bottom: 10px;
-  color: #3f51b5;
-  font-size: 1.1em;
-}
-
-.abilities-section button {
-  background-color: #8bc34a; /* Verde lima para habilidades */
-  color: white;
-  border: none;
-  border-radius: 5px;
-  padding: 8px 15px;
-  font-size: 0.9em;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  white-space: nowrap; /* Evita que el texto se rompa */
-}
-
-.abilities-section button:hover:not(:disabled) {
-  background-color: #689f38;
-  transform: translateY(-2px);
-}
-
-.abilities-section button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-  opacity: 0.7;
-  transform: none;
-}
-
-.abilities-section button.used-ability {
-  background-color: #9e9e9e; /* Gris para habilidades usadas */
-  cursor: not-allowed;
-}
-
-/* Nuevas clases para resultado final del juego */
-.player-display.game-finished-winner,
-.ia-display.game-finished-winner {
-  transform: scale(1.15) rotate(5deg); /* Un poco más de "fiesta" */
-  box-shadow: 0 0 30px 8px rgba(0, 255, 0, 0.7); /* Brillo verde intenso */
-}
-
-.player-display.game-finished-loser,
-.ia-display.game-finished-loser {
-  opacity: 0.2;
-  transform: scale(0.6) rotate(-5deg); /* Se encoge y se desvanece */
-}
-
-/* Asegurarse de que los botones de elección estén deshabilitados si el juego terminó */
-.choices-buttons button[disabled] {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.reset-button {
-  background-color: #007bff; /* Azul para el botón de Reiniciar Juego Completo */
-  color: white;
-}
-.reset-button:hover {
-  background-color: #0056b3;
-}
-
-.is-blocked {
-  cursor: not-allowed;
-  opacity: 0.5;
-  filter: grayscale(100%);
-  transition: opacity 0.3s ease, filter 0.3s ease;
-}
-
-.is-blocked:hover {
-  background-color: var(--color-background-soft);
-  color: var(--color-text);
-  transform: none;
 }
 </style>
